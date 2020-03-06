@@ -1,24 +1,19 @@
 package rexos
 
-// Config defines all the required settings for the REXos
+// Config carries all important configurations for the REXos system
 type Config struct {
-	API            ResourcesConfig     `json:"ResourceUrls"`
-	ServiceClient  ServiceClientConfig `json:"ServiceClient"`
-	BasePathExtern string              `json:"BasePathExtern"`
-}
+	// AccessTokenURL is the absolute path for requesting the token
+	AccessTokenURL string
 
-// ResourcesConfig groups all resource URLs which are required by this composite service
-type ResourcesConfig struct {
-	Project      string `json:"Project"`
-	ProjectFile  string `json:"ProjectFile"`
-	RexReference string `json:"RexReference"`
-	Inspection   string `json:"Inspection"`
-	Activity     string `json:"Activity"`
-	User         string `json:"User"`
-}
+	// ClientID is the service user ID
+	ClientID string
 
-// ServiceClientConfig specifies the credentials for the service user
-type ServiceClientConfig struct {
-	AccessTokenURL string `json:"AccessTokenURL"`
-	ID             string `json:"ClientID"`
+	// ClientSecret is the password for the service user
+	ClientSecret string
+
+	// JwtSigningKey is the signing key to validate the REXos token
+	JwtSigningKey string
+
+	// BasePathExtern defines the path prefix for external access
+	BasePathExtern string
 }
