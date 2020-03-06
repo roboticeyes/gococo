@@ -18,10 +18,6 @@ const (
 	KeyUserID = "UserID"
 )
 
-var (
-	log = event.Log
-)
-
 // CustomClaims is our custom metadata of the JWT
 type CustomClaims struct {
 	ComplexAuthorities struct {

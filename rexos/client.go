@@ -121,7 +121,7 @@ func (c *Client) scheduleTokenRefreshHandler() {
 // GetWithServiceUser performs the GET request with the credentials of the service user
 func (c *Client) GetWithServiceUser(ctx context.Context, query string, authenticate bool) (string, []byte, int, error) {
 
-	xf, err := auth.GetXForwarded(ctx)
+	xf, err := GetXForwarded(ctx)
 	if err != nil {
 		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
 	}
@@ -134,12 +134,12 @@ func (c *Client) GetWithServiceUser(ctx context.Context, query string, authentic
 // Get performs the GET request with the credentials of the client user (stored in the token)
 func (c *Client) Get(ctx context.Context, query string, authenticate bool) (string, []byte, int, error) {
 
-	token, err := auth.GetAccessTokenFromContext(ctx)
+	token, err := GetAccessTokenFromContext(ctx)
 	if err != nil {
 		return "", nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
 	}
 
-	xf, err := auth.GetXForwarded(ctx)
+	xf, err := GetXForwarded(ctx)
 	if err != nil {
 		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
 	}
@@ -150,7 +150,7 @@ func (c *Client) Get(ctx context.Context, query string, authenticate bool) (stri
 // The return values also contain the http status code and a potential error which has occured.
 // The request will be setup as JSON request and also takes out the authentication information from
 // the given context.
-func (c *Client) get(token string, xf auth.XForwarded, query string, authenticate bool) (string, []byte, int, error) {
+func (c *Client) get(token string, xf XForwarded, query string, authenticate bool) (string, []byte, int, error) {
 
 	req, _ := http.NewRequest("GET", query, nil)
 	req.Header.Add("Content-Type", "application/json")
@@ -226,7 +226,7 @@ func (c *Client) PostWithServiceUser(ctx context.Context, query string, payload 
 // Post performs the GET request with the credentials of the client user (stored in the token)
 func (c *Client) Post(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
 
-	token, err := auth.GetAccessTokenFromContext(ctx)
+	token, err := GetAccessTokenFromContext(ctx)
 	if err != nil {
 		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
 	}
@@ -303,7 +303,7 @@ func (c *Client) PatchWithServiceUser(ctx context.Context, query string, payload
 // Patch performs the PATCH request with the credentials of the client user (stored in the token)
 func (c *Client) Patch(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
 
-	token, err := auth.GetAccessTokenFromContext(ctx)
+	token, err := GetAccessTokenFromContext(ctx)
 	if err != nil {
 		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
 	}
@@ -365,7 +365,7 @@ func (c *Client) DeleteWithServiceUser(ctx context.Context, link string) ([]byte
 // Delete performs the DELETE request with the credentials of the client user (stored in the token)
 func (c *Client) Delete(ctx context.Context, link string) ([]byte, int, error) {
 
-	token, err := auth.GetAccessTokenFromContext(ctx)
+	token, err := GetAccessTokenFromContext(ctx)
 	if err != nil {
 		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
 	}

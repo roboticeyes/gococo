@@ -48,19 +48,19 @@ func GetProjectLinkFromHal(json []byte) string {
 }
 
 // GetHalResourceWithServiceUser ...
-func (s *Service) GetHalResourceWithServiceUser(ctx context.Context, resourceName, url string) ([]byte, *Status) {
+func (s *Service) GetHalResourceWithServiceUser(ctx context.Context, resourceName, url string) ([]byte, *status.Status) {
 	return s.getHalResource(ctx, resourceName, url, true)
 }
 
 // GetHalResource ...
-func (s *Service) GetHalResource(ctx context.Context, resourceName, url string) ([]byte, *Status) {
+func (s *Service) GetHalResource(ctx context.Context, resourceName, url string) ([]byte, *status.Status) {
 	return s.getHalResource(ctx, resourceName, url, false)
 }
 
 // getHalResource performs the GET request for getting a rexos resource
 // Returns the body in case of success. If an error occurred, then the according
 // status is returned. The resourceName is used for the error message
-func (s *Service) getHalResource(ctx context.Context, resourceName, url string, useServiceUser bool) ([]byte, *Status) {
+func (s *Service) getHalResource(ctx context.Context, resourceName, url string, useServiceUser bool) ([]byte, *status.Status) {
 
 	var body []byte
 	var code int
@@ -78,7 +78,7 @@ func (s *Service) getHalResource(ctx context.Context, resourceName, url string, 
 			"code":         code,
 			"url":          url,
 		}).Debug("Can not get HAL resource: " + err.Error())
-		return []byte{}, NewStatus(body, code, "Can not get resource "+resourceName)
+		return []byte{}, status.NewStatus(body, code, "Can not get resource "+resourceName)
 	}
 
 	// A GET request should return 200 StatusOK
