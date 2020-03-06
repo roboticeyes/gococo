@@ -35,7 +35,7 @@ type CustomClaims struct {
 }
 
 // ValidateToken checks the token of a given context
-func ValidateToken(c *gin.Context) {
+func ValidateToken(c *gin.Context, signingKey string) {
 
 	tokenString := c.GetHeader("authorization")
 	if tokenString == "" {
@@ -52,7 +52,7 @@ func ValidateToken(c *gin.Context) {
 	}
 
 	token, err := jwt.ParseWithClaims(split[1], &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(GlobalVault.JwtSigningKey), nil
+		return []byte(signingKey), nil
 	})
 	if err != nil {
 		log.Error(err)

@@ -50,20 +50,20 @@ type JwtToken struct {
 // Client is the client which is used to send requests to the rexOS. The client
 // should be created once and shared among all services.
 type Client struct {
-	httpClient   *http.Client
-	config       Config
-	vault        Vault
-	serviceToken JwtToken   // this is the service user token which gets updated using a cron job
-	mutex        sync.Mutex // used for accessing the token in parallel
+	httpClient          *http.Client
+	config              Config
+	serviceClientSecret string     // secret for the service user client
+	serviceToken        JwtToken   // this is the service user token which gets updated using a cron job
+	mutex               sync.Mutex // used for accessing the token in parallel
 }
 
 // NewClient create a new rexOS HTTP client
-func NewClient(cfg Config, vault Vault) *Client {
+func NewClient(cfg Config, secret string) *Client {
 
 	client := &Client{
-		httpClient: http.DefaultClient,
-		config:     cfg,
-		vault:      vault,
+		httpClient:          http.DefaultClient,
+		config:              cfg,
+		serviceClientSecret: secret,
 	}
 
 	go client.scheduleTokenRefreshHandler()
@@ -74,7 +74,7 @@ func (c *Client) refreshToken() {
 
 	log.Info("Refreshing service user token ...")
 
-	payload := c.config.ServiceClient.ID + ":" + c.vault.ServiceClientSecret
+	payload := c.config.ServiceClient.ID + ":" + c.serviceClientSecret
 	encodedToken := b64.StdEncoding.EncodeToString([]byte(payload))
 	req, _ := http.NewRequest("POST", c.config.ServiceClient.AccessTokenURL, bytes.NewReader([]byte(`grant_type=client_credentials`)))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
