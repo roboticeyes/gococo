@@ -32,7 +32,7 @@ type ContextData struct {
 }
 
 // GetRexContext parses the GIN context and extracts the necessary token, while
-// adding the token to a new context for the rexOS calls.
+// adding the token to a new context for the REXos calls.
 func GetRexContext(c *gin.Context) (context.Context, context.CancelFunc) {
 	var contextData ContextData
 	contextData.AccessToken = c.GetHeader(AuthorizationKey)

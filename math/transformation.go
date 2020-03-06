@@ -1,6 +1,6 @@
 package math
 
-// Transformation is used for any transformation in the rexOS system. It
+// Transformation is used for any transformation in the REXos system. It
 // uses quaternions for rotation and only one scale value.
 // Please do not use this struct directly, but use the NewTransformation() instead!
 type Transformation struct {

@@ -1,4 +1,4 @@
-// Package rexos is the connection layer to store the data in the rexOS.
+// Package rexos is the connection layer to store the data in the REXos.
 package rexos
 
 import (
@@ -17,9 +17,9 @@ import (
 
 var log = event.Log
 
-// Service is the connection to rexOS
+// Service is the connection to REXos
 type Service struct {
-	client *Client // this is the client which is used to perform the rexOS calls
+	client *Client // this is the client which is used to perform the REXos calls
 }
 
 // NewService returns a new rexos service which is implementing the RexOSAccessor interface

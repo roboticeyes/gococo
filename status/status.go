@@ -18,7 +18,7 @@ type Status struct {
 type RexOSStatus struct {
 	Message   string `json:"message" example:"status bad request"`
 	Timestamp string `json:"timestamp" example:"2019-12-02T14:12:53.346+0000"`
-	Path      string `json:"path" example:"/sites/1/subResource"`
+	Path      string `json:"path" example:"/resources/1/subResource"`
 	Type      string `json:"type,omitempty" example:"OPTIMISTIC_LOCKING_FAILURE"`
 	Code      int    `json:"status" example:"409"`
 	Error     string `json:"error" example:"Conflict"`

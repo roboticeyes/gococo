@@ -28,7 +28,7 @@ const (
 	// full access token with "bearer <token>"
 	AccessTokenKey AccessTokenType = "authorization"
 	// UserIDKey is the key for the context information. The context needs to store the
-	// rexOS user id
+	// REXos user id
 	UserIDKey UserIDType = "UserID"
 
 	// Defines the maximum trials for sensitive requests to recover any errors
@@ -47,7 +47,7 @@ type JwtToken struct {
 	Jti             string      `json:"jti"`
 }
 
-// Client is the client which is used to send requests to the rexOS. The client
+// Client is the client which is used to send requests to the REXos. The client
 // should be created once and shared among all services.
 type Client struct {
 	httpClient   *http.Client
@@ -56,7 +56,7 @@ type Client struct {
 	mutex        sync.Mutex // used for accessing the token in parallel
 }
 
-// NewClient create a new rexOS HTTP client
+// NewClient create a new REXos HTTP client
 func NewClient(cfg Config) *Client {
 
 	client := &Client{
