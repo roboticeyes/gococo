@@ -2,7 +2,7 @@ package rexos
 
 import "github.com/roboticeyes/gococo/math"
 
-// Reference is a rexOS reference
+// Reference is a REXos reference
 type Reference struct {
 	// Read Only: passing this when creating a rootReference is not necessary
 	RootReference       bool                `json:"rootReference"`
