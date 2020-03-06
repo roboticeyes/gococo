@@ -9,15 +9,15 @@ var log = event.Log
 
 // Service is the connection to rexOS
 type Service struct {
-	config RexConfig
+	config Config
 	client *Client // this is the client which is used to perform the rexOS calls
 }
 
 // NewService returns a new rexos service which is implementing the RexOSAccessor interface
-func NewService(cfg RexConfig) *Service {
+func NewService(cfg Config, vault Vault) *Service {
 
 	return &Service{
-		client: NewClient(cfg),
+		client: NewClient(cfg, vault),
 		config: cfg,
 	}
 }

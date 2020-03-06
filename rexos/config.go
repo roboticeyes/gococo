@@ -1,19 +1,14 @@
 package rexos
 
-var (
-	// GlobalConfig is the global config container which contains all the REXos config data
-	GlobalConfig RexConfig
-)
-
-// RexConfig defines all the required settings for the REXos
-type RexConfig struct {
-	Resources      Resources     `json:"ResourceUrls"`
-	ServiceClient  ServiceClient `json:"ServiceClient"`
-	BasePathExtern string        `json:"BasePathExtern"`
+// Config defines all the required settings for the REXos
+type Config struct {
+	API            ResourcesConfig     `json:"ResourceUrls"`
+	ServiceClient  ServiceClientConfig `json:"ServiceClient"`
+	BasePathExtern string              `json:"BasePathExtern"`
 }
 
-// Resources groups all resource URLs which are required by this composite service
-type Resources struct {
+// ResourcesConfig groups all resource URLs which are required by this composite service
+type ResourcesConfig struct {
 	Project      string `json:"Project"`
 	ProjectFile  string `json:"ProjectFile"`
 	RexReference string `json:"RexReference"`
@@ -22,8 +17,8 @@ type Resources struct {
 	User         string `json:"User"`
 }
 
-// ServiceClient specifies the credentials for the service user
-type ServiceClient struct {
+// ServiceClientConfig specifies the credentials for the service user
+type ServiceClientConfig struct {
 	AccessTokenURL string `json:"AccessTokenURL"`
 	ID             string `json:"ClientID"`
 }
