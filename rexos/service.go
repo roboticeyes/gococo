@@ -59,12 +59,12 @@ func GetProjectLinkFromHal(json []byte) string {
 	return StripTemplateParameter(gjson.Get(string(json), "_links.project.href").String())
 }
 
-// GetHalResourceWithServiceUser ...
+// GetHalResourceWithServiceUser returns the requested resource which got fetched with the service user
 func (s *Service) GetHalResourceWithServiceUser(ctx context.Context, resourceName, url string) ([]byte, *status.Status) {
 	return s.getHalResource(ctx, resourceName, url, true)
 }
 
-// GetHalResource ...
+// GetHalResource returns the requested resource
 func (s *Service) GetHalResource(ctx context.Context, resourceName, url string) ([]byte, *status.Status) {
 	return s.getHalResource(ctx, resourceName, url, false)
 }
@@ -105,12 +105,12 @@ func (s *Service) getHalResource(ctx context.Context, resourceName, url string, 
 	return body, nil
 }
 
-// CreateHalResourceWithServiceUser ...
+// CreateHalResourceWithServiceUser uses the service user credential to create a new resource
 func (s *Service) CreateHalResourceWithServiceUser(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
 	return s.createHalResource(ctx, resourceName, url, r, true)
 }
 
-// CreateHalResource ...
+// CreateHalResource creates a new resource with the caller's credentials
 func (s *Service) CreateHalResource(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
 	return s.createHalResource(ctx, resourceName, url, r, false)
 }
@@ -153,12 +153,12 @@ func (s *Service) createHalResource(ctx context.Context, resourceName, url strin
 	return body, nil
 }
 
-// PatchHalResourceWithServiceUser ...
+// PatchHalResourceWithServiceUser patches the resource with the service user
 func (s *Service) PatchHalResourceWithServiceUser(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
 	return s.patchHalResource(ctx, resourceName, url, r, true)
 }
 
-// PatchHalResource ...
+// PatchHalResource patches the resource with the caller's credentials
 func (s *Service) PatchHalResource(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
 	return s.patchHalResource(ctx, resourceName, url, r, false)
 }
