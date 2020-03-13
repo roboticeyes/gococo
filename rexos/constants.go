@@ -20,7 +20,7 @@ const (
 	ReferenceTypeGroup  = "group"
 
 	ResourceTypeRexProject      = "RexProject"
-	ResourceTypeRexReferences   = "RexReferences"
+	ResourceTypeRexReference    = "RexReference"
 	ResourceTypeFileReference   = "FileReference"
 	ResourceTypeProjectFile     = "ProjectFile"
 	ResourceTypeGroup           = "GroupReference"
