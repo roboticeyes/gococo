@@ -31,7 +31,7 @@ const (
 	// REXos user id
 	UserIDKey UserIDType = "UserID"
 
-	// Defines the maximum trials for sensitive requests to recover any errors
+	// MaxTrials defines the maximum trials for sensitive requests to recover any errors
 	MaxTrials = 3
 )
 
