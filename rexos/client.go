@@ -32,7 +32,7 @@ const (
 	UserIDKey UserIDType = "UserID"
 
 	// Defines the maximum trials for sensitive requests to recover any errors
-	maxTrials = 3
+	MaxTrials = 3
 )
 
 // JwtToken is the token which is returned from REXos
@@ -167,7 +167,7 @@ func (c *Client) get(token string, xf XForwarded, query string, authenticate boo
 
 	var fileName string
 	trials := 0
-	for ; trials < maxTrials; trials++ {
+	for ; trials < MaxTrials; trials++ {
 		if trials > 0 {
 			log.Debugf("Internal GET %s: trial %d\n", query, trials)
 		}
@@ -381,7 +381,7 @@ func (c *Client) delete(token, link string) ([]byte, int, error) {
 	req.Header.Add("authorization", token)
 
 	trials := 0
-	for ; trials < maxTrials; trials++ {
+	for ; trials < MaxTrials; trials++ {
 		if trials > 0 {
 			log.Debugf("DELETE %s: trial %d\n", link, trials)
 		}

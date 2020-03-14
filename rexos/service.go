@@ -199,6 +199,30 @@ func (s *Service) patchHalResource(ctx context.Context, resourceName, url string
 	return body, nil
 }
 
+// DeleteHalResource patches the resource with the caller's credentials
+func (s *Service) DeleteHalResource(ctx context.Context, resourceName, url string) *status.Status {
+	_, code, err := s.client.Delete(ctx, url)
+	if err != nil {
+		log.WithFields(event.Fields{
+			"resoucreName": resourceName,
+			"code":         code,
+			"url":          url,
+		}).Info("Failed to delete HAL resource" + err.Error())
+		return status.NewStatus(nil, code, "Can not delete resource "+resourceName)
+	}
+
+	// A DELETE request should return 200 StatusOK
+	if code != http.StatusOK {
+		log.WithFields(event.Fields{
+			"resourceName": resourceName,
+			"code":         code,
+			"url":          url,
+		}).Debug("Can not delete HAL resource")
+		return status.NewStatus(nil, code, "Can not delete resource "+resourceName)
+	}
+	return nil
+}
+
 // DownloadFileContent uploads the actual binary file for a project file
 func (s *Service) DownloadFileContent(ctx context.Context, downloadURL string, authenticate bool) ([]byte, *status.Status) {
 	// download file content
