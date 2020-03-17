@@ -14,3 +14,8 @@ func QueryFindByUrn(base, urn string) string {
 func QueryFindByParentReferenceAndCategory(base, parent, category string) string {
 	return base + "/search/findAllByParentReferenceAndCategory?parentReference=" + parent + "&category=" + category
 }
+
+// QueryGetPage generates a get page query
+func QueryGetPage(base, page string) string {
+	return base + "?page=" + page
+}
