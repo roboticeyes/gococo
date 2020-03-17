@@ -211,8 +211,8 @@ func (s *Service) DeleteHalResource(ctx context.Context, resourceName, url strin
 		return status.NewStatus(nil, code, "Can not delete resource "+resourceName)
 	}
 
-	// A DELETE request should return 200 StatusOK
-	if code != http.StatusOK {
+	// A DELETE request should return 200 StatusOK or 204 StatusNoContent
+	if code != http.StatusOK && code != http.StatusNoContent {
 		log.WithFields(event.Fields{
 			"resourceName": resourceName,
 			"code":         code,
