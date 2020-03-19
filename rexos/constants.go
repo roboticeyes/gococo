@@ -16,4 +16,6 @@ const (
 	ResourceTypeGroup           = "GroupReference"
 	ResourceTypeRootReference   = "RootReference"
 	ResourceTypePortalReference = "PortalReference"
+	ResourceTypeUser            = "User"
+	ResourceTypeLicense         = "License"
 )
