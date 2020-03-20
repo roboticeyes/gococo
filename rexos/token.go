@@ -39,9 +39,14 @@ func ValidateToken(c *gin.Context, signingKey string) {
 
 	tokenString := c.GetHeader("authorization")
 	if tokenString == "" {
-		log.Error("Missing authentication token in header")
-		c.AbortWithStatus(http.StatusForbidden)
-		return
+		// If not access token is found in header, try to get the interceptor token which can be
+		// merged in by the composite service itself.
+		tokenString = c.GetString(AuthorizationKey)
+		if tokenString == "" {
+			log.Error("Missing authentication token in header")
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
 	}
 
 	split := strings.Split(tokenString, " ")

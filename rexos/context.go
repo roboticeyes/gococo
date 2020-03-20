@@ -36,6 +36,11 @@ type ContextData struct {
 func GetRexContext(c *gin.Context) (context.Context, context.CancelFunc) {
 	var contextData ContextData
 	contextData.AccessToken = c.GetHeader(AuthorizationKey)
+	if contextData.AccessToken == "" {
+		// If not access token is found in header, try to get the interceptor token which can be
+		// merged in by the composite service itself.
+		contextData.AccessToken = c.GetString(AuthorizationKey)
+	}
 	userID, exists := c.Get(KeyUserID)
 	if !exists {
 		userID = ""
