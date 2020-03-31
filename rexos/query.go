@@ -16,6 +16,11 @@ func QueryFindByParentReferenceAndCategory(base, parent, category string) string
 }
 
 // QueryGetPageAndSize generates a query with query parameters page and size
-func QueryGetPageAndSize(base, page string, size string) string {
+func QueryGetPageAndSize(base, page, size string) string {
 	return base + "?page=" + page + "&size=" + size
+}
+
+// QueryGetPageAndSizeAndSort generates a query with query parameters page and size and sort
+func QueryGetPageAndSizeAndSort(base, page, size, sort string) string {
+	return QueryGetPageAndSize(base, page, size) + "&sort=" + sort
 }
