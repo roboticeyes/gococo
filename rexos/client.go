@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"mime"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -113,8 +114,13 @@ func (c *Client) scheduleTokenRefreshHandler() {
 
 	c.refreshToken()
 
+	var interval uint64 = 600
+	if (c.serviceToken.ExpiresIn - 30) > 60 {
+		interval = c.serviceToken.ExpiresIn - 30
+	}
 	// Take expiration attribute and make sure to early update the token (30 seconds before)
-	cron.Every(c.serviceToken.ExpiresIn - 30).Seconds().Do(c.refreshToken)
+	log.Info("Starting cron job to refresh service user token with interval " + strconv.FormatUint(interval, 10) + "s")
+	cron.Every(interval).Seconds().Do(c.refreshToken)
 	<-cron.Start()
 }
 
