@@ -8,4 +8,5 @@ require (
 	github.com/radovskyb/watcher v1.0.7
 	github.com/sirupsen/logrus v1.4.2
 	github.com/tidwall/gjson v1.6.0
+	golang.org/x/sys v0.0.0-20200212091648-12a6c2dcc1e4 // indirect
 )
