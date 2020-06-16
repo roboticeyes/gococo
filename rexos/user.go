@@ -3,7 +3,6 @@ package rexos
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/roboticeyes/gococo/event"
@@ -82,7 +81,7 @@ func (s *Service) GetUserInformation(ctx context.Context, resourceURL string) (U
 		return UserInformation{}, ret
 	}
 
-	// get user properties name, lastUpdated
+	// get user properties name, email
 	userResultLink := StripTemplateParameter(gjson.Get(string(currentUserResult), "_links.user.href").String())
 	userResult, ret := s.GetHalResource(ctx, "User", userResultLink)
 	if ret != nil {
@@ -210,7 +209,6 @@ func (s *Service) UpdateUserInformation(ctx context.Context, resourceURL string,
 		ret.Message = "Could not get current user. Please make sure you have the correct access rights."
 		return info, ret
 	}
-	fmt.Println(query)
 
 	// update user description (properties address, company, newsletter, language, uid)
 	userDescriptionLink := gjson.Get(string(currentUserResult), "_links.userDescription.href").String()
