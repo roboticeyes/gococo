@@ -7,7 +7,6 @@ import (
 
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
-	"github.com/roboticeyes/gorexos/pkg/http/rexos"
 	"github.com/tidwall/gjson"
 )
 
@@ -158,7 +157,7 @@ func (s *Service) GetUserLicenses(ctx context.Context, resourceURL string) (User
 		return UserLicenses{}, ret
 	}
 
-	userLicensesLink := rexos.StripTemplateParameter(gjson.Get(string(currentUserResult), "_links.userLicenses.href").String())
+	userLicensesLink := StripTemplateParameter(gjson.Get(string(currentUserResult), "_links.userLicenses.href").String())
 	userLicensesResult, ret := s.GetHalResource(ctx, "User", userLicensesLink)
 	if ret != nil {
 		log.WithFields(event.Fields{
@@ -281,7 +280,7 @@ func (s *Service) UpdateUserInformation(ctx context.Context, resourceURL string,
 	}
 
 	// update user information  (properties userId, username, firstName, lastName, lastLogin)
-	userInfoLink := rexos.StripTemplateParameter(gjson.Get(string(currentUserResult), "_links.self.href").String())
+	userInfoLink := StripTemplateParameter(gjson.Get(string(currentUserResult), "_links.self.href").String())
 
 	var userInfo UserInfo
 
