@@ -100,15 +100,30 @@ func (s *Service) GetUserInformation(ctx context.Context, resourceURL string) (U
 	userDescriptionLink := gjson.Get(string(currentUserResult), "_links.userDescription.href").String()
 	userDescriptionResult, ret := s.GetHalResource(ctx, "User", userDescriptionLink)
 	if ret != nil {
-		log.WithFields(event.Fields{
-			"status": ret,
-			"query":  userDescriptionLink,
-		}).Error("Failed to get user description")
+		if ret.Code == 404 {
+			// no desciption available. this happens if no values are entered.
 
-		ret.Message = "Could not get user description. Please make sure you have the correct access rights."
-		return UserInformation{}, ret
+			emptyValue := ""
+			userInformation.Address = &Address{
+				Zip:         &emptyValue,
+				Address:     &emptyValue,
+				State:       &emptyValue,
+				City:        &emptyValue,
+				Country:     &emptyValue,
+				CountryName: &emptyValue,
+			}
+		} else {
+			log.WithFields(event.Fields{
+				"status": ret,
+				"query":  userDescriptionLink,
+			}).Error("Failed to get user description")
+
+			ret.Message = "Could not get user description. Please make sure you have the correct access rights."
+			return UserInformation{}, ret
+		}
+	} else {
+		json.Unmarshal(userDescriptionResult, &userInformation)
 	}
-	json.Unmarshal(userDescriptionResult, &userInformation)
 
 	return userInformation, nil
 }
@@ -210,20 +225,38 @@ func (s *Service) UpdateUserInformation(ctx context.Context, resourceURL string,
 	}
 
 	// update user description (properties address, company, newsletter, language, uid)
+	var userDescription UserDescription
 	userDescriptionLink := gjson.Get(string(currentUserResult), "_links.userDescription.href").String()
 	userDescriptionResult, ret := s.GetHalResource(ctx, "User", userDescriptionLink)
 	if ret != nil {
-		log.WithFields(event.Fields{
-			"status": ret,
-			"query":  query,
-		}).Error("Failed to get current user description")
+		if ret.Code == 404 {
+			log.WithFields(event.Fields{
+				"status": ret,
+				"query":  query,
+			}).Info("Failed to get current user description. Maybe does not exist yet.")
 
-		ret.Message = "Could not get current user description. Please make sure you have the correct access rights."
-		return info, ret
+			// Continue, because this happens when user has not entered his address, .."
+
+			emptyValue := ""
+			userDescription.Address = Address{
+				Zip:         &emptyValue,
+				Address:     &emptyValue,
+				State:       &emptyValue,
+				City:        &emptyValue,
+				Country:     &emptyValue,
+				CountryName: &emptyValue,
+			}
+		} else {
+			log.WithFields(event.Fields{
+				"status": ret,
+				"query":  query,
+			}).Error("Failed to get current user description.")
+			ret.Message = "Could not get current user description. Please make sure you have the correct access rights."
+			return info, ret
+		}
+	} else {
+		json.Unmarshal(userDescriptionResult, &userDescription)
 	}
-
-	var userDescription UserDescription
-	json.Unmarshal(userDescriptionResult, &userDescription)
 
 	if info.Company != nil {
 		userDescription.Company = *info.Company
