@@ -343,7 +343,7 @@ func (s *Service) UpdateUserInformation(ctx context.Context, resourceURL string,
 		return info, ret
 	}
 
-	err := json.Unmarshal(userInfoResult, &info)
+	json.Unmarshal(userInfoResult, &info)
 
 	return info, nil
 }
