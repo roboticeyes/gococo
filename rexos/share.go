@@ -33,7 +33,7 @@ type Share struct {
 	UserShares  []UserShare `json:"userShares,omitempty"`
 }
 
-// GetShare returns the sharing information for a porject
+// GetShare returns the sharing information for a project
 func (s *Service) GetShare(ctx context.Context, projectResourceURL, userResourceURL, projectUrn string) (Share, *status.Status) {
 	var share Share
 
