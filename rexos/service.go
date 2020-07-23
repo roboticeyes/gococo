@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/roboticeyes/gococo/event"
@@ -377,12 +378,18 @@ func GetHashFromDownloadLink(link string) string {
 // RexTag link
 func GetGUIDFromRexTagURL(link string) string {
 
-	// check if link starts with http
-	if !strings.HasPrefix(link, "http") {
+	u, err := url.Parse(link)
+	if err != nil {
+		log.Fatal(err)
 		return ""
 	}
 
-	res := strings.Split(link, "/")
+	if u.Scheme == "" {
+		log.Println("Scheme is empty for link:", link)
+		return ""
+	}
+
+	res := strings.Split(u.Path, "/")
 
 	if len(res) < 2 {
 		return ""
