@@ -51,21 +51,27 @@ type JwtToken struct {
 // Client is the client which is used to send requests to the REXos. The client
 // should be created once and shared among all services.
 type Client struct {
-	httpClient   *http.Client
-	config       Config
-	serviceToken JwtToken   // this is the service user token which gets updated using a cron job
-	mutex        sync.Mutex // used for accessing the token in parallel
+	httpClient     *http.Client
+	config         Config
+	serviceToken   JwtToken   // this is the service user token which gets updated using a cron job
+	mutex          sync.Mutex // used for accessing the token in parallel
+	useServiceUser bool       // uses a service user for some requests
 }
 
 // NewClient create a new REXos HTTP client
-func NewClient(cfg Config) *Client {
-
+func NewClient(cfg Config, args ...bool) *Client {
 	client := &Client{
-		httpClient: http.DefaultClient,
-		config:     cfg,
+		httpClient:     http.DefaultClient,
+		config:         cfg,
+		useServiceUser: true,
+	}
+	if len(args) > 0 {
+		client.useServiceUser = args[0]
 	}
 
-	go client.scheduleTokenRefreshHandler()
+	if client.useServiceUser {
+		go client.scheduleTokenRefreshHandler()
+	}
 	return client
 }
 
@@ -126,6 +132,9 @@ func (c *Client) scheduleTokenRefreshHandler() {
 
 // GetWithServiceUser performs the GET request with the credentials of the service user
 func (c *Client) GetWithServiceUser(ctx context.Context, query string, authenticate bool) (string, []byte, int, error) {
+	if !c.useServiceUser {
+		return "", nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
 
 	xf, err := GetXForwarded(ctx)
 	if err != nil {
@@ -223,6 +232,9 @@ func (c *Client) get(token string, xf XForwarded, query string, authenticate boo
 
 // PostWithServiceUser performs the POST request with the credentials of the service user
 func (c *Client) PostWithServiceUser(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+	if !c.useServiceUser {
+		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
 	c.mutex.Unlock()
@@ -299,6 +311,9 @@ func (c *Client) post(token string, query string, payload io.Reader, contentType
 
 // PatchWithServiceUser performs the PATCH request with the credentials of the service user
 func (c *Client) PatchWithServiceUser(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+	if !c.useServiceUser {
+		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
 
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
@@ -361,6 +376,9 @@ func (c *Client) patch(token, query string, payload io.Reader, contentType strin
 
 // DeleteWithServiceUser performs the DELETE request with the credentials of the service user
 func (c *Client) DeleteWithServiceUser(ctx context.Context, link string) ([]byte, int, error) {
+	if !c.useServiceUser {
+		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
 
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
