@@ -407,6 +407,5 @@ func GetNumberFromUrn(urn string) (string, *status.Status) {
 
 		return "", status.NewStatus([]byte{}, http.StatusInternalServerError, "Cannot get number from urn ")
 	}
-	number := parts[2]
-	return number, nil
+	return parts[2], nil
 }
