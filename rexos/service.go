@@ -24,6 +24,7 @@ type Service struct {
 
 // NewService returns a new rexos service which is implementing the RexOSAccessor interface
 func NewService(config Config) *Service {
+
 	return &Service{
 		client: NewClient(config),
 	}
