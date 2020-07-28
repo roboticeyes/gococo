@@ -59,13 +59,14 @@ type Client struct {
 
 // NewClient create a new REXos HTTP client
 func NewClient(cfg Config) *Client {
-
 	client := &Client{
 		httpClient: http.DefaultClient,
 		config:     cfg,
 	}
 
-	go client.scheduleTokenRefreshHandler()
+	if !client.config.NotApplyServiceUser {
+		go client.scheduleTokenRefreshHandler()
+	}
 	return client
 }
 
@@ -126,6 +127,9 @@ func (c *Client) scheduleTokenRefreshHandler() {
 
 // GetWithServiceUser performs the GET request with the credentials of the service user
 func (c *Client) GetWithServiceUser(ctx context.Context, query string, authenticate bool) (string, []byte, int, error) {
+	if c.config.NotApplyServiceUser {
+		return "", nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
 
 	xf, err := GetXForwarded(ctx)
 	if err != nil {
@@ -223,6 +227,9 @@ func (c *Client) get(token string, xf XForwarded, query string, authenticate boo
 
 // PostWithServiceUser performs the POST request with the credentials of the service user
 func (c *Client) PostWithServiceUser(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+	if c.config.NotApplyServiceUser {
+		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
 	c.mutex.Unlock()
@@ -299,6 +306,9 @@ func (c *Client) post(token string, query string, payload io.Reader, contentType
 
 // PatchWithServiceUser performs the PATCH request with the credentials of the service user
 func (c *Client) PatchWithServiceUser(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+	if c.config.NotApplyServiceUser {
+		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
 
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
@@ -361,6 +371,9 @@ func (c *Client) patch(token, query string, payload io.Reader, contentType strin
 
 // DeleteWithServiceUser performs the DELETE request with the credentials of the service user
 func (c *Client) DeleteWithServiceUser(ctx context.Context, link string) ([]byte, int, error) {
+	if c.config.NotApplyServiceUser {
+		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
 
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
