@@ -59,15 +59,13 @@ type Client struct {
 }
 
 // NewClient create a new REXos HTTP client
-func NewClient(cfg Config, args ...bool) *Client {
+func NewClient(cfg Config, useServiceUser bool) *Client {
 	client := &Client{
 		httpClient:     http.DefaultClient,
 		config:         cfg,
 		useServiceUser: true,
 	}
-	if len(args) > 0 {
-		client.useServiceUser = args[0]
-	}
+	client.useServiceUser = useServiceUser
 
 	if client.useServiceUser {
 		go client.scheduleTokenRefreshHandler()
