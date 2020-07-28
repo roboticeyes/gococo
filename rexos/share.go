@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
 	"github.com/tidwall/gjson"
+)
+
+const (
+	readAction  = "READ"
+	writeAction = "WRITE"
 )
 
 // User is a container for user details used for project sharing
@@ -21,15 +25,29 @@ type User struct {
 }
 
 // UserShare describes the type of sharing of a project with a user
+// data structure for frontend
 type UserShare struct {
 	User  User `json:"user"`
 	Write bool `json:"write"`
 	Read  bool `json:"read"`
 }
 
+// UserShareReduced describes the sharing action ("READ"| "WRITE") for the given user
+// data structure for backend
+type UserShareReduced struct {
+	UserID string `json:"user"`
+	Action string `json:"action" example:"READ | WRITE"`
+}
+
+// PublicShare contains the information about public sharing
+// data structure for backend
+type PublicShare struct {
+	Shared bool `json:"shared"`
+}
+
 // Share contains all sharing information for a project
 type Share struct {
-	PublicShare bool        `json:"publicShare"`
+	PublicShare *bool       `json:"publicShare,omitempty"`
 	UserShares  []UserShare `json:"userShares,omitempty"`
 }
 
@@ -37,16 +55,10 @@ type Share struct {
 func (s *Service) GetShare(ctx context.Context, projectResourceURL, userResourceURL, projectUrn string) (Share, *status.Status) {
 	var share Share
 
-	// get number from project urn robotic-eyes:project:12345 -> 12345
-	parts := strings.Split(projectUrn, ":")
-	if len(parts) < 3 {
-		log.WithFields(event.Fields{
-			"projectUrn": projectUrn,
-		}).Error("Failed to get number from urn")
-
-		return Share{}, status.NewStatus([]byte{}, http.StatusInternalServerError, "Cannot get number from projectUrn ")
+	projectNumber, ret := GetNumberFromUrn(projectUrn)
+	if ret != nil {
+		return share, ret
 	}
-	projectNumber := parts[2]
 
 	// get public sharing information
 	query := projectResourceURL + "/" + projectNumber + "/publicShare"
@@ -61,7 +73,8 @@ func (s *Service) GetShare(ctx context.Context, projectResourceURL, userResource
 		ret.Message = "Cannot not get public share information for the project. Please make sure you have the correct access rights."
 		return Share{}, ret
 	}
-	share.PublicShare = gjson.Get(string(publicShareResult), "shared").Bool()
+	val := gjson.Get(string(publicShareResult), "shared").Bool()
+	share.PublicShare = &val
 
 	// get user sharing information
 	query = projectResourceURL + "/" + projectNumber + "/userShares"
@@ -98,7 +111,7 @@ func (s *Service) GetShare(ctx context.Context, projectResourceURL, userResource
 		json.Unmarshal(userResult, &user)
 		userShare.User = user
 
-		if gjson.Get(u.String(), "action").String() == "READ" {
+		if gjson.Get(u.String(), "action").String() == readAction {
 			userShare.Read = true
 			userShare.Write = false
 		} else {
@@ -111,12 +124,104 @@ func (s *Service) GetShare(ctx context.Context, projectResourceURL, userResource
 	return share, nil
 }
 
-// UpdateShare updates the project sharing
+// UpdateShare updates the project sharing (public sharing)
 func (s *Service) UpdateShare(ctx context.Context, projectResourceURL, userResourceURL, projectUrn string, share Share) (Share, *status.Status) {
+	projectNumber, ret := GetNumberFromUrn(projectUrn)
+	if ret != nil {
+		return share, ret
+	}
+
+	// update public sharing information
+	query := projectResourceURL + "/" + projectNumber + "/publicShare"
+	val := share.PublicShare
+	_, ret = s.PatchHalResource(ctx, "Projects", query, PublicShare{Shared: *val})
+	if ret != nil {
+		log.WithFields(event.Fields{
+			"status":     ret,
+			"projectUrn": projectUrn,
+			"query":      query,
+		}).Error("Failed to update public share information")
+
+		ret.Message = "Cannot not update public share information for the project. Please make sure you have the correct access rights."
+		return Share{}, ret
+	}
 	return share, nil
 }
 
-// DeleteUserShare deletes a user sharing of a project
+// CreateUserShare shares a project with a given user
+func (s *Service) CreateUserShare(ctx context.Context, projectResourceURL, userResourceURL, projectUrn string, userShare UserShare) (UserShare, *status.Status) {
+	projectNumber, ret := GetNumberFromUrn(projectUrn)
+	if ret != nil {
+		return userShare, ret
+	}
+
+	var action string
+	if userShare.Read {
+		action = readAction
+	} else {
+		action = writeAction
+	}
+
+	// find user by email to get the userID
+	if userShare.User.Email == "" {
+		log.WithFields(event.Fields{
+			"projectUrn": projectUrn,
+		}).Error("No email address for user sharing.")
+		return userShare, status.NewStatus([]byte{}, http.StatusBadRequest, "No email address found.")
+	}
+
+	query := userResourceURL + "/search/findUserIdByEmail?email=" + userShare.User.Email
+	userResult, ret := s.GetHalResource(ctx, "Users", query)
+	if ret != nil {
+		log.WithFields(event.Fields{
+			"status":     ret,
+			"projectUrn": projectUrn,
+			"email":      userShare.User.Email,
+			"query":      query,
+		}).Error("Failed to get userId by email")
+
+		ret.Message = "Cannot find userId. Please make sure you have the correct access rights."
+		return UserShare{}, ret
+	}
+	json.Unmarshal(userResult, &userShare.User)
+
+	share := UserShareReduced{UserID: userShare.User.UserID, Action: action}
+
+	// update user sharing
+	query = projectResourceURL + "/" + projectNumber + "/userShares"
+	_, ret = s.CreateHalResource(ctx, "Projects", query, share)
+	if ret != nil {
+		log.WithFields(event.Fields{
+			"status":     ret,
+			"projectUrn": projectUrn,
+			"query":      query,
+		}).Error("Failed to update user share information")
+
+		ret.Message = "Cannot not update user share information for the project. Please make sure you have the correct access rights."
+		return UserShare{}, ret
+	}
+
+	return userShare, nil
+}
+
+// DeleteUserShare deletes a user share of a project
 func (s *Service) DeleteUserShare(ctx context.Context, resourceURL, projectUrn, userID string) *status.Status {
+	projectNumber, ret := GetNumberFromUrn(projectUrn)
+	if ret != nil {
+		return ret
+	}
+
+	query := resourceURL + "/" + projectNumber + "/userShares/" + userID
+	ret = s.DeleteHalResource(ctx, "Projects", query)
+	if ret != nil {
+		log.WithFields(event.Fields{
+			"status":     ret,
+			"projectUrn": projectUrn,
+			"query":      query,
+		}).Error("Failed to delete user share")
+
+		ret.Message = "Cannot not delete user share for the project. Please make sure you have the correct access rights."
+		return ret
+	}
 	return nil
 }
