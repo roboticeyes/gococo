@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
@@ -56,7 +55,7 @@ type Share struct {
 func (s *Service) GetShare(ctx context.Context, projectResourceURL, userResourceURL, projectUrn string) (Share, *status.Status) {
 	var share Share
 
-	projectNumber, ret := getProjectNumberFromUrn(projectUrn)
+	projectNumber, ret := GetNumberFromUrn(projectUrn)
 	if ret != nil {
 		return share, ret
 	}
@@ -127,7 +126,7 @@ func (s *Service) GetShare(ctx context.Context, projectResourceURL, userResource
 
 // UpdateShare updates the project sharing (public sharing)
 func (s *Service) UpdateShare(ctx context.Context, projectResourceURL, userResourceURL, projectUrn string, share Share) (Share, *status.Status) {
-	projectNumber, ret := getProjectNumberFromUrn(projectUrn)
+	projectNumber, ret := GetNumberFromUrn(projectUrn)
 	if ret != nil {
 		return share, ret
 	}
@@ -151,7 +150,7 @@ func (s *Service) UpdateShare(ctx context.Context, projectResourceURL, userResou
 
 // CreateUserShare shares a project with a given user
 func (s *Service) CreateUserShare(ctx context.Context, projectResourceURL, userResourceURL, projectUrn string, userShare UserShare) (UserShare, *status.Status) {
-	projectNumber, ret := getProjectNumberFromUrn(projectUrn)
+	projectNumber, ret := GetNumberFromUrn(projectUrn)
 	if ret != nil {
 		return userShare, ret
 	}
@@ -207,7 +206,7 @@ func (s *Service) CreateUserShare(ctx context.Context, projectResourceURL, userR
 
 // DeleteUserShare deletes a user share of a project
 func (s *Service) DeleteUserShare(ctx context.Context, resourceURL, projectUrn, userID string) *status.Status {
-	projectNumber, ret := getProjectNumberFromUrn(projectUrn)
+	projectNumber, ret := GetNumberFromUrn(projectUrn)
 	if ret != nil {
 		return ret
 	}
@@ -225,18 +224,4 @@ func (s *Service) DeleteUserShare(ctx context.Context, resourceURL, projectUrn, 
 		return ret
 	}
 	return nil
-}
-
-// getProjectNumberFromUrn eturns the project number from project urn robotic-eyes:project:12345 -> 12345
-func getProjectNumberFromUrn(projectUrn string) (string, *status.Status) {
-	parts := strings.Split(projectUrn, ":")
-	if len(parts) < 3 {
-		log.WithFields(event.Fields{
-			"projectUrn": projectUrn,
-		}).Error("Failed to get number from urn")
-
-		return "", status.NewStatus([]byte{}, http.StatusInternalServerError, "Cannot get number from projectUrn ")
-	}
-	projectNumber := parts[2]
-	return projectNumber, nil
 }

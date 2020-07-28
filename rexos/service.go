@@ -396,3 +396,17 @@ func GetGUIDFromRexTagURL(link string) string {
 	}
 	return res[len(res)-1]
 }
+
+// GetNumberFromUrn extracts the number of an urn e.g. robotic-eyes:project:12345 -> 12345
+func GetNumberFromUrn(urn string) (string, *status.Status) {
+	parts := strings.Split(urn, ":")
+	if len(parts) < 3 {
+		log.WithFields(event.Fields{
+			"urn": urn,
+		}).Error("Failed to get number from urn")
+
+		return "", status.NewStatus([]byte{}, http.StatusInternalServerError, "Cannot get number from urn ")
+	}
+	number := parts[2]
+	return number, nil
+}
