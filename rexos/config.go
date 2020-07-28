@@ -16,4 +16,7 @@ type Config struct {
 
 	// BasePathExtern defines the path prefix for external access
 	BasePathExtern string
+
+	// NotApplyServiceUser flag for using the service user or not
+	NotApplyServiceUser bool
 }
