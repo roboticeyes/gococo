@@ -148,8 +148,8 @@ func (s *Service) UpdateShare(ctx context.Context, projectResourceURL, userResou
 	return share, nil
 }
 
-// CreateUserShare shares a project with a given user
-func (s *Service) CreateUserShare(ctx context.Context, projectResourceURL, userResourceURL, projectUrn string, userShare UserShare) (UserShare, *status.Status) {
+// CreateOrUpdateUserShare shares a project with a given user
+func (s *Service) CreateOrUpdateUserShare(ctx context.Context, projectResourceURL, userResourceURL, projectUrn string, userShare UserShare) (UserShare, *status.Status) {
 	projectNumber, ret := GetNumberFromUrn(projectUrn)
 	if ret != nil {
 		return userShare, ret
@@ -191,14 +191,30 @@ func (s *Service) CreateUserShare(ctx context.Context, projectResourceURL, userR
 	query = projectResourceURL + "/" + projectNumber + "/userShares"
 	_, ret = s.CreateHalResource(ctx, "Projects", query, share)
 	if ret != nil {
-		log.WithFields(event.Fields{
-			"status":     ret,
-			"projectUrn": projectUrn,
-			"query":      query,
-		}).Error("Failed to update user share information")
+		if ret.Code == 409 {
+			// user share already exist, update it
+			query = projectResourceURL + "/" + projectNumber + "/userShares/" + userShare.User.UserID
+			_, ret = s.PatchHalResource(ctx, "Projects", query, share)
+			if ret != nil {
+				log.WithFields(event.Fields{
+					"status":     ret,
+					"projectUrn": projectUrn,
+					"query":      query,
+				}).Error("Failed to update user share information")
 
-		ret.Message = "Cannot not update user share information for the project. Please make sure you have the correct access rights."
-		return UserShare{}, ret
+				ret.Message = "Cannot not update user share information for the project. Please make sure you have the correct access rights."
+				return UserShare{}, ret
+			}
+		} else {
+			log.WithFields(event.Fields{
+				"status":     ret,
+				"projectUrn": projectUrn,
+				"query":      query,
+			}).Error("Failed to create user share information")
+
+			ret.Message = "Cannot not create user share information for the project. Please make sure you have the correct access rights."
+			return UserShare{}, ret
+		}
 	}
 
 	return userShare, nil
