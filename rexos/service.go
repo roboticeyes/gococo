@@ -143,7 +143,7 @@ func (s *Service) createHalResource(ctx context.Context, resourceName, url strin
 	}
 
 	// A POST request should return 201 StatusCreated
-	if code != http.StatusCreated {
+	if code != http.StatusCreated && code != http.StatusOK {
 		log.WithFields(event.Fields{
 			"resourceName": resourceName,
 			"code":         code,
