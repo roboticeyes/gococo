@@ -6,7 +6,6 @@ import (
 
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
-	"github.com/roboticeyes/gorexos/pkg/http/rexos"
 	"github.com/tidwall/gjson"
 )
 
@@ -85,7 +84,7 @@ func (s *Service) TransferProject(ctx context.Context, projectResourceURL, userR
 	project.Owner = owner
 
 	// update project
-	_, ret = s.PatchHalResource(ctx, projectResourceURL, rexos.GetSelfLinkFromHal(projectResult), project)
+	_, ret = s.PatchHalResource(ctx, projectResourceURL, GetSelfLinkFromHal(projectResult), project)
 	if ret != nil {
 		log.WithFields(event.Fields{
 			"projectUrn": projectUrn,
