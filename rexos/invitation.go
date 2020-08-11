@@ -2,6 +2,7 @@ package rexos
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
@@ -31,11 +32,30 @@ type ProjectInvitation struct {
 // CreateProjectInvitation shares a project with a new user
 func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string, user User, projectResourceURL, authResourceURL string) (ProjectInvitation, *status.Status) {
 	// find project
-	query := 
+	query := QueryFindByUrn(projectResourceURL, projectUrn)
+	projectResult, ret := s.GetHalResource(ctx, "Project", query)
+	if ret != nil {
+		log.WithFields(event.Fields{
+			"projectUrn": projectUrn,
+			"query":      query,
+			"status":     ret,
+		}).Error("Failed to get project")
 
-	query := authURL + "invitations/sharingInvitation"
+		ret.Message = "Could not get project. Please make sure you have the correct access rights."
+		return ProjectInvitation{}, ret
+	}
+	var project Project
+	json.Unmarshal(projectResult, &project)
 
-	_, ret := s.CreateHalResource(ctx, "Auth", query, invitation)
+	query = authURL + "invitations/sharingInvitation"
+	var invitation ProjectInvitation
+	var inviteUser InviteUser
+	inviteUser.Email = user.Email
+	inviteUser.FirstName = user.FirstName
+	inviteUser.LastName = user.LastName
+	invitation.InviteUser = inviteUser
+
+	_, ret = s.CreateHalResource(ctx, "Auth", query, invitation)
 	if ret != nil {
 		log.WithFields(event.Fields{
 			"status": ret,

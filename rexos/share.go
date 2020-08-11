@@ -17,11 +17,11 @@ const (
 
 // User is a container for user details used for project sharing
 type User struct {
-	UserName  string `json:"userName"`
-	Email     string `json:"email"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	UserID    string `json:"userID"`
+	UserName  string `json:"userName,omitempty"`
+	Email     string `json:"email,omitempty"`
+	FirstName string `json:"firstName,omitempty"`
+	LastName  string `json:"lastName,omitempty"`
+	UserID    string `json:"userID,omitempty"`
 }
 
 // UserShare describes the type of sharing of a project with a user
