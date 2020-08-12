@@ -155,22 +155,20 @@ func (s *Service) CreateOrUpdateUserShare(ctx context.Context, projectResourceUR
 		return userShare, ret
 	}
 
-	var action string
-	if userShare.Read {
-		action = readAction
+	var query string
+	if userShare.User.Email != "" {
+		query = userResourceURL + "/search/findUserIdByEmail?email=" + userShare.User.Email
 	} else {
-		action = writeAction
+		if userShare.User.UserName != "" {
+			query = userResourceURL + "/search/findUserIdByUsername?username=" + userShare.User.UserName
+		} else {
+			log.WithFields(event.Fields{
+				"projectUrn": projectUrn,
+			}).Error("No email address or username for user sharing.")
+			return userShare, status.NewStatus([]byte{}, http.StatusBadRequest, "No email address or username found.")
+		}
 	}
 
-	// find user by email to get the userID
-	if userShare.User.Email == "" {
-		log.WithFields(event.Fields{
-			"projectUrn": projectUrn,
-		}).Error("No email address for user sharing.")
-		return userShare, status.NewStatus([]byte{}, http.StatusBadRequest, "No email address found.")
-	}
-
-	query := userResourceURL + "/search/findUserIdByEmail?email=" + userShare.User.Email
 	userResult, ret := s.GetHalResource(ctx, "Users", query)
 	if ret != nil {
 		log.WithFields(event.Fields{
@@ -184,6 +182,11 @@ func (s *Service) CreateOrUpdateUserShare(ctx context.Context, projectResourceUR
 		return UserShare{}, ret
 	}
 	json.Unmarshal(userResult, &userShare.User)
+
+	action := writeAction
+	if userShare.Read {
+		action = readAction
+	}
 
 	share := UserShareReduced{UserID: userShare.User.UserID, Action: action}
 
