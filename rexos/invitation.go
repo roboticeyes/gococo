@@ -6,6 +6,7 @@ import (
 
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
+	"github.com/tidwall/gjson"
 )
 
 // User is a container for email and name of a new user
@@ -47,6 +48,10 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	var project Project
 	json.Unmarshal(projectResult, &project)
 
+	// find portal reference
+	portalRefResult := gjson.Get([]byte(projectResult.Raw), "_embedded.rexReferences.#(type==\"portal\")#._links.self.href")
+	// get key from portal???
+
 	query = authURL + "invitations/sharingInvitation"
 	var invitation ProjectInvitation
 	var inviteUser InviteUser
@@ -54,6 +59,8 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	inviteUser.FirstName = user.FirstName
 	inviteUser.LastName = user.LastName
 	invitation.InviteUser = inviteUser
+	invitation.InviteUser.ProjectName = project.Name
+	invitation.InviteUser.ProjectUrl = project.Url
 
 	_, ret = s.CreateHalResource(ctx, "Auth", query, invitation)
 	if ret != nil {
