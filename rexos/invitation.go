@@ -31,7 +31,7 @@ type ProjectInvitation struct {
 }
 
 // CreateProjectInvitation shares a project with a new user
-func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string, user User, projectResourceURL, authResourceURL string) (ProjectInvitation, *status.Status) {
+func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string, user User, sharing string, projectResourceURL, authResourceURL string) (ProjectInvitation, *status.Status) {
 	// find project
 	query := QueryFindByUrn(projectResourceURL, projectUrn)
 	projectResult, ret := s.GetHalResource(ctx, "Project", query)
@@ -49,7 +49,8 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	json.Unmarshal(projectResult, &project)
 
 	// find portal reference
-	portalRefResult := gjson.Get([]byte(projectResult.Raw), "_embedded.rexReferences.#(type==\"portal\")#._links.self.href")
+	portalRefResult := gjson.Get(string(projectResult), "_embedded.rexReferences.#(type==\"portal\")#._links.self.href")
+	key := gjson.Get(portalRefResult.String(), "key")
 	// get key from portal???
 
 	query = authURL + "invitations/sharingInvitation"
@@ -61,6 +62,8 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	invitation.InviteUser = inviteUser
 	invitation.InviteUser.ProjectName = project.Name
 	invitation.InviteUser.ProjectUrl = project.Url
+	invitation.ProjectAPIUrl = invitation.InviteUser.ProjectUrl
+	invitation.Sharing = sharing
 
 	_, ret = s.CreateHalResource(ctx, "Auth", query, invitation)
 	if ret != nil {
