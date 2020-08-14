@@ -94,8 +94,8 @@ func (s *Service) getHalResource(ctx context.Context, resourceName, url string, 
 		return []byte{}, status.NewStatus(body, code, "Can not get resource "+resourceName)
 	}
 
-	// A GET request should return 200 StatusOK
-	if code != http.StatusOK {
+	// A GET request should return a value in range of [200,300[
+	if code < http.StatusOK || code >= http.StatusMultipleChoices {
 		log.WithFields(event.Fields{
 			"resourceName": resourceName,
 			"code":         code,
@@ -142,8 +142,8 @@ func (s *Service) createHalResource(ctx context.Context, resourceName, url strin
 		return []byte{}, status.NewStatus(body, code, "Can not create resource "+resourceName)
 	}
 
-	// A POST request should return 201 StatusCreated
-	if code != http.StatusCreated && code != http.StatusOK {
+	// A POST request should return a value in range of [200,300[
+	if code < http.StatusOK || code >= http.StatusMultipleChoices {
 		log.WithFields(event.Fields{
 			"resourceName": resourceName,
 			"code":         code,
@@ -188,8 +188,8 @@ func (s *Service) patchHalResource(ctx context.Context, resourceName, url string
 		return []byte{}, status.NewStatus(body, code, "Can not modify resource "+resourceName)
 	}
 
-	// A PATCH request should return 200 StatusOK
-	if code != http.StatusOK {
+	// A PATCH request should return a value in range of [200,300[
+	if code < http.StatusOK || code >= http.StatusMultipleChoices {
 		log.WithFields(event.Fields{
 			"resourceName": resourceName,
 			"code":         code,
@@ -212,8 +212,8 @@ func (s *Service) DeleteHalResource(ctx context.Context, resourceName, url strin
 		return status.NewStatus(nil, code, "Can not delete resource "+resourceName)
 	}
 
-	// A DELETE request should return 200 StatusOK or 204 StatusNoContent
-	if code != http.StatusOK && code != http.StatusNoContent {
+	// A DELETE request should return a value in range of [200,300[
+	if code < http.StatusOK || code >= http.StatusMultipleChoices {
 		log.WithFields(event.Fields{
 			"resourceName": resourceName,
 			"code":         code,
