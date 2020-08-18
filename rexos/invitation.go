@@ -1,37 +1,39 @@
 package rexos
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
 	"github.com/tidwall/gjson"
 )
 
-// User is a container for email and name of a new user
-type User struct {
+// UserData is a container for email and name of a new user
+type UserData struct {
 	Email     string `json:"email"`
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 }
 
-// InviteUser describes user and project information
-type InviteUser struct {
-	User
+// UserAndProjectData describes user and project information
+type UserAndProjectData struct {
+	UserData
 	ProjectName string `json:"projectName"`
-	ProjectUrl  string `json:"projectUrl"`
+	ProjectURL  string `json:"projectUrl"`
 }
 
 // ProjectInvitation is a container for user project and sharing information
 type ProjectInvitation struct {
-	InviteUser    InviteUser `json:"inviteUser"`
-	ProjectAPIUrl string     `json:"projectAPIUrl"`
-	Sharing       string     `json:"sharing"`
+	InviteUser UserAndProjectData `json:"inviteUser"`
+	// ProjectAPIUrl string     `json:"projectAPIUrl"`
+	Sharing string `json:"sharing"`
 }
 
 // CreateProjectInvitation shares a project with a new user
-func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string, user User, sharing string, projectResourceURL, authResourceURL string) (ProjectInvitation, *status.Status) {
+func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string, invitation ProjectInvitation, projectResourceURL, invitationURL, rexCodesResourceURL string) (ProjectInvitation, *status.Status) {
 	// find project
 	query := QueryFindByUrn(projectResourceURL, projectUrn)
 	projectResult, ret := s.GetHalResource(ctx, "Project", query)
@@ -47,24 +49,27 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	}
 	var project Project
 	json.Unmarshal(projectResult, &project)
+	fmt.Println("ProjectResult")
+	fmt.Println(string(projectResult))
 
-	// find portal reference
-	portalRefResult := gjson.Get(string(projectResult), "_embedded.rexReferences.#(type==\"portal\")#._links.self.href")
-	key := gjson.Get(portalRefResult.String(), "key")
-	// get key from portal???
+	// find key of portal reference
+	key := gjson.Get(string(projectResult), "_embedded.rexReferences.#(type==\"portal\").key")
 
-	query = authURL + "invitations/sharingInvitation"
-	var invitation ProjectInvitation
-	var inviteUser InviteUser
-	inviteUser.Email = user.Email
-	inviteUser.FirstName = user.FirstName
-	inviteUser.LastName = user.LastName
-	invitation.InviteUser = inviteUser
+	query = invitationURL
+	// var invitation ProjectInvitation
+	// var inviteUser UserAndProjectData
+	// inviteUser.Email = inv.InviteUser.Email
+	// inviteUser.FirstName = inv.InviteUser.FirstName
+	// inviteUser.LastName = inv.InviteUser.LastName
+	// invitation.InviteUser = inviteUser
 	invitation.InviteUser.ProjectName = project.Name
-	invitation.InviteUser.ProjectUrl = project.Url
-	invitation.ProjectAPIUrl = invitation.InviteUser.ProjectUrl
-	invitation.Sharing = sharing
+	invitation.InviteUser.ProjectURL = rexCodesResourceURL + "/" + key.String()
+	// invitation.ProjectAPIUrl = invitation.InviteUser.ProjectUrl
+	// invitation.Sharing = inv.Sharing
 
+	fmt.Println(query)
+	body, _ := PrettyJson(invitation)
+	fmt.Println(body)
 	_, ret = s.CreateHalResource(ctx, "Auth", query, invitation)
 	if ret != nil {
 		log.WithFields(event.Fields{
@@ -76,4 +81,22 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 		return ProjectInvitation{}, ret
 	}
 	return invitation, nil
+}
+
+// PrettyJson for development use
+func PrettyJson(data interface{}) (string, error) {
+	const (
+		empty = ""
+		tab   = "\t"
+	)
+
+	buffer := new(bytes.Buffer)
+	encoder := json.NewEncoder(buffer)
+	encoder.SetIndent(empty, tab)
+
+	err := encoder.Encode(data)
+	if err != nil {
+		return empty, err
+	}
+	return buffer.String(), nil
 }
