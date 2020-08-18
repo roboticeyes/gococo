@@ -409,3 +409,17 @@ func GetNumberFromUrn(urn string) (string, *status.Status) {
 	}
 	return parts[2], nil
 }
+
+// GetHalResourceWithServiceUser returns the requested resource which got fetched with the service user
+func (s *Service) GetBodyWithServiceUser(ctx context.Context, resourceName, url string) (*http.Response, error) {
+	return s.getBody(ctx, resourceName, url, true)
+}
+
+// getHalResource performs the GET request for getting a rexos resource
+// Returns the body in case of success. If an error occurred, then the according
+// status is returned. The resourceName is used for the error message
+func (s *Service) getBody(ctx context.Context, resourceName, url string, useServiceUser bool) (*http.Response, error) {
+
+	return s.client.GetBodyWithServiceUser(ctx, url, true)
+
+}

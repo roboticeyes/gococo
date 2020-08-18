@@ -438,3 +438,43 @@ func (c *Client) delete(token, link string) ([]byte, int, error) {
 
 	return []byte{}, http.StatusRequestTimeout, fmt.Errorf("Internal DELETE request failed after %d trials", trials+1)
 }
+
+// --------
+
+// GetWithServiceUser performs the GET request with the credentials of the service user
+func (c *Client) GetBodyWithServiceUser(ctx context.Context, query string, authenticate bool) (*http.Response, error) {
+	if c.config.NotApplyServiceUser {
+		return nil, fmt.Errorf("No service user initialized")
+	}
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot get host")
+	}
+	c.mutex.Lock()
+	token := "Bearer " + c.serviceToken.AccessToken
+	c.mutex.Unlock()
+	return c.getBody(token, xf, query, authenticate)
+}
+
+// Get performs a GET request to the given query and returns the body response which is of type JSON.
+// The return values also contain the http status code and a potential error which has occured.
+// The request will be setup as JSON request and also takes out the authentication information from
+// the given context.
+func (c *Client) getBody(token string, xf XForwarded, query string, authenticate bool) (*http.Response, error) {
+
+	req, _ := http.NewRequest("GET", query, nil)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("X-Requested-With", "XMLHttpRequest")
+	req.Header.Add("X-Forwarded-Host", xf.Host)
+	req.Header.Add("X-Forwarded-Port", xf.Port)
+	req.Header.Add("X-Forwarded-Proto", xf.Proto)
+	req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
+
+	if authenticate {
+		req.Header.Add("Authorization", token)
+	}
+
+	return c.httpClient.Do(req)
+}
