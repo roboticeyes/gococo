@@ -472,7 +472,7 @@ func (c *Client) GetFileWithServiceUser(ctx context.Context, context *gin.Contex
 func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, query string, authenticate bool) (int, error) {
 
 	req, _ := http.NewRequest("GET", query, nil)
-	// req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Content-Type", "application/octet-stream")
 	req.Header.Add("Accept", "application/octet-stream")
 	req.Header.Add("X-Requested-With", "XMLHttpRequest")
 	req.Header.Add("X-Forwarded-Host", xf.Host)
@@ -487,8 +487,8 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 	response, err := c.httpClient.Do(req)
 	if err != nil {
 		log.WithFields(event.Fields{
-			"query": query,
-			"errorMessage": err.Error()
+			"query":        query,
+			"errorMessage": err.Error(),
 		}).Debug("Internal GET request error")
 		return http.StatusServiceUnavailable, err
 	}
@@ -499,11 +499,23 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 		return response.StatusCode, err
 	}
 
+	// Check for content-disposition to extract optional fileName
+	fileName := ""
+	contentDisposition := response.Header.Get("Content-Disposition")
+	if contentDisposition != "" {
+		_, params, err := mime.ParseMediaType(contentDisposition)
+		if err == nil {
+			fileName = params["filename"]
+		}
+	}
+
 	reader := response.Body
 	contentLength := response.ContentLength
 	contentType := response.Header.Get("Content-Type")
 
-	extraHeaders := make(map[string]string, 0)
+	extraHeaders := map[string]string{
+		"Content-Disposition": `attachment; filename=` + fileName,
+	}
 	context.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
 
 	return response.StatusCode, nil
