@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
 	"github.com/tidwall/gjson"
@@ -410,16 +411,22 @@ func GetNumberFromUrn(urn string) (string, *status.Status) {
 	return parts[2], nil
 }
 
-// GetHalResourceWithServiceUser returns the requested resource which got fetched with the service user
-func (s *Service) GetBodyWithServiceUser(ctx context.Context, resourceName, url string) (*http.Response, error) {
-	return s.getBody(ctx, resourceName, url, true)
-}
+// GetFileWithServiceUser returns the file from the requested url which got fetched with the service user
+func (s *Service) GetFileWithServiceUser(ctx context.Context, c *gin.Context, url string) *status.Status {
+	code, err := s.client.GetFileWithServiceUser(ctx, c, url, true)
 
-// getHalResource performs the GET request for getting a rexos resource
-// Returns the body in case of success. If an error occurred, then the according
-// status is returned. The resourceName is used for the error message
-func (s *Service) getBody(ctx context.Context, resourceName, url string, useServiceUser bool) (*http.Response, error) {
+	if err != nil {
+		log.WithFields(event.Fields{
+			"url": url,
+		}).Debug("Can not get file: " + err.Error())
+		return status.NewStatus([]byte{}, code, "Can not get file "+url)
+	}
+	if code != http.StatusOK {
+		log.WithFields(event.Fields{
+			"url": url,
+		}).Debug("Can not get file: " + err.Error())
+		return status.NewStatus([]byte{}, code, "Can not get file "+url)
+	}
 
-	return s.client.GetBodyWithServiceUser(ctx, url, true)
-
+	return nil
 }

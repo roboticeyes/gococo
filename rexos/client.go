@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/roboticeyes/gococo/cron"
 	"github.com/roboticeyes/gococo/event"
 )
@@ -133,6 +134,8 @@ func (c *Client) GetWithServiceUser(ctx context.Context, query string, authentic
 
 	xf, err := GetXForwarded(ctx)
 	if err != nil {
+		fmt.Println("host error service user")
+		fmt.Println(err)
 		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
 	}
 	c.mutex.Lock()
@@ -151,6 +154,8 @@ func (c *Client) Get(ctx context.Context, query string, authenticate bool) (stri
 
 	xf, err := GetXForwarded(ctx)
 	if err != nil {
+		fmt.Println("host error")
+		fmt.Println(err)
 		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
 	}
 	return c.get(token, xf, query, authenticate)
@@ -183,6 +188,12 @@ func (c *Client) get(token string, xf XForwarded, query string, authenticate boo
 		}
 
 		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			log.WithFields(event.Fields{
+				"query":        query,
+				"errorMessage": err.Error(),
+			}).Debug("Internal GET request error")
+		}
 
 		// Check for content-disposition to extract optional fileName
 		contentDisposition := resp.Header.Get("Content-Disposition")
@@ -439,29 +450,26 @@ func (c *Client) delete(token, link string) ([]byte, int, error) {
 	return []byte{}, http.StatusRequestTimeout, fmt.Errorf("Internal DELETE request failed after %d trials", trials+1)
 }
 
-// --------
-
-// GetWithServiceUser performs the GET request with the credentials of the service user
-func (c *Client) GetBodyWithServiceUser(ctx context.Context, query string, authenticate bool) (*http.Response, error) {
+// GetFileWithServiceUser performs the GET request with the credentials of the service user
+func (c *Client) GetFileWithServiceUser(ctx context.Context, context *gin.Context, query string, authenticate bool) (int, error) {
 	if c.config.NotApplyServiceUser {
-		return nil, fmt.Errorf("No service user initialized")
+		return http.StatusForbidden, fmt.Errorf("No service user initialized")
 	}
 
 	xf, err := GetXForwarded(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot get host")
+		return http.StatusForbidden, fmt.Errorf("Cannot get host")
 	}
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
 	c.mutex.Unlock()
-	return c.getBody(token, xf, query, authenticate)
+	return c.getFile(context, token, xf, query, authenticate)
 }
 
-// Get performs a GET request to the given query and returns the body response which is of type JSON.
+// getFile performs a GET request to the given query and forwards the file from the given url
 // The return values also contain the http status code and a potential error which has occured.
-// The request will be setup as JSON request and also takes out the authentication information from
-// the given context.
-func (c *Client) getBody(token string, xf XForwarded, query string, authenticate bool) (*http.Response, error) {
+// The request takes out the authentication information from the given context.
+func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, query string, authenticate bool) (int, error) {
 
 	req, _ := http.NewRequest("GET", query, nil)
 	req.Header.Add("Content-Type", "application/json")
@@ -476,5 +484,20 @@ func (c *Client) getBody(token string, xf XForwarded, query string, authenticate
 		req.Header.Add("Authorization", token)
 	}
 
-	return c.httpClient.Do(req)
+	response, err := c.httpClient.Do(req)
+	if err != nil {
+		log.WithFields(event.Fields{
+			"query":        query,
+			"errorMessage": err.Error(),
+		}).Debug("Internal GET request error")
+	}
+
+	reader := response.Body
+	contentLength := response.ContentLength
+	contentType := response.Header.Get("Content-Type")
+
+	extraHeaders := make(map[string]string, 0)
+	context.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
+
+	return http.StatusOK, nil
 }
