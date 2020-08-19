@@ -424,7 +424,7 @@ func (s *Service) GetFileWithServiceUser(ctx context.Context, c *gin.Context, ur
 	if code != http.StatusOK {
 		log.WithFields(event.Fields{
 			"url": url,
-		}).Debug("Can not get file: " + err.Error())
+		}).Debug("Can not get file ")
 		return status.NewStatus([]byte{}, code, "Can not get file "+url)
 	}
 

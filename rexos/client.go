@@ -472,8 +472,8 @@ func (c *Client) GetFileWithServiceUser(ctx context.Context, context *gin.Contex
 func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, query string, authenticate bool) (int, error) {
 
 	req, _ := http.NewRequest("GET", query, nil)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Accept", "application/json")
+	// req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/octet-stream")
 	req.Header.Add("X-Requested-With", "XMLHttpRequest")
 	req.Header.Add("X-Forwarded-Host", xf.Host)
 	req.Header.Add("X-Forwarded-Port", xf.Port)
@@ -487,9 +487,16 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 	response, err := c.httpClient.Do(req)
 	if err != nil {
 		log.WithFields(event.Fields{
-			"query":        query,
-			"errorMessage": err.Error(),
+			"query": query,
+			"errorMessage": err.Error()
 		}).Debug("Internal GET request error")
+		return http.StatusServiceUnavailable, err
+	}
+	if response.StatusCode != http.StatusOK {
+		log.WithFields(event.Fields{
+			"query": query,
+		}).Debug("Internal GET request error")
+		return response.StatusCode, err
 	}
 
 	reader := response.Body
@@ -499,5 +506,5 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 	extraHeaders := make(map[string]string, 0)
 	context.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
 
-	return http.StatusOK, nil
+	return response.StatusCode, nil
 }
