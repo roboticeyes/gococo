@@ -134,8 +134,6 @@ func (c *Client) GetWithServiceUser(ctx context.Context, query string, authentic
 
 	xf, err := GetXForwarded(ctx)
 	if err != nil {
-		fmt.Println("host error service user")
-		fmt.Println(err)
 		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
 	}
 	c.mutex.Lock()
@@ -154,8 +152,6 @@ func (c *Client) Get(ctx context.Context, query string, authenticate bool) (stri
 
 	xf, err := GetXForwarded(ctx)
 	if err != nil {
-		fmt.Println("host error")
-		fmt.Println(err)
 		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
 	}
 	return c.get(token, xf, query, authenticate)

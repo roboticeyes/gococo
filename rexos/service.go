@@ -419,13 +419,13 @@ func (s *Service) GetFileWithServiceUser(ctx context.Context, c *gin.Context, ur
 		log.WithFields(event.Fields{
 			"url": url,
 		}).Debug("Can not get file: " + err.Error())
-		return status.NewStatus([]byte{}, code, "Can not get file "+url)
+		return status.NewStatus([]byte{}, code, "Can not get file from "+url)
 	}
 	if code != http.StatusOK {
 		log.WithFields(event.Fields{
 			"url": url,
 		}).Debug("Can not get file ")
-		return status.NewStatus([]byte{}, code, "Can not get file "+url)
+		return status.NewStatus([]byte{}, code, "Can not get file from "+url)
 	}
 
 	return nil
