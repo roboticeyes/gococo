@@ -56,20 +56,10 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	key := gjson.Get(string(projectResult), "_embedded.rexReferences.#(type==\"portal\").key")
 
 	query = invitationURL
-	// var invitation ProjectInvitation
-	// var inviteUser UserAndProjectData
-	// inviteUser.Email = inv.InviteUser.Email
-	// inviteUser.FirstName = inv.InviteUser.FirstName
-	// inviteUser.LastName = inv.InviteUser.LastName
-	// invitation.InviteUser = inviteUser
 	invitation.InviteUser.ProjectName = project.Name
 	invitation.InviteUser.ProjectURL = rexCodesResourceURL + "/" + key.String()
 	// invitation.ProjectAPIUrl = invitation.InviteUser.ProjectUrl
-	// invitation.Sharing = inv.Sharing
 
-	fmt.Println(query)
-	body, _ := PrettyJson(invitation)
-	fmt.Println(body)
 	_, ret = s.CreateHalResource(ctx, "Auth", query, invitation)
 	if ret != nil {
 		log.WithFields(event.Fields{
