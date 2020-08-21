@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/roboticeyes/gococo/cron"
 	"github.com/roboticeyes/gococo/event"
 )
@@ -183,6 +184,12 @@ func (c *Client) get(token string, xf XForwarded, query string, authenticate boo
 		}
 
 		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			log.WithFields(event.Fields{
+				"query":        query,
+				"errorMessage": err.Error(),
+			}).Debug("Internal GET request error")
+		}
 
 		// Check for content-disposition to extract optional fileName
 		contentDisposition := resp.Header.Get("Content-Disposition")
@@ -437,4 +444,105 @@ func (c *Client) delete(token, link string) ([]byte, int, error) {
 	}
 
 	return []byte{}, http.StatusRequestTimeout, fmt.Errorf("Internal DELETE request failed after %d trials", trials+1)
+}
+
+// GetFileWithServiceUser performs the GET request with the credentials of the service user
+func (c *Client) GetFileWithServiceUser(ctx context.Context, context *gin.Context, query string, authenticate bool) (int, error) {
+	if c.config.NotApplyServiceUser {
+		return http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+	c.mutex.Lock()
+	token := "Bearer " + c.serviceToken.AccessToken
+	c.mutex.Unlock()
+	return c.getFile(context, token, xf, query, authenticate)
+}
+
+// getFile performs a GET request to the given query and forwards the file from the given url
+// The return values also contain the http status code and a potential error which has occured.
+// The request takes out the authentication information from the given context.
+func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, query string, authenticate bool) (int, error) {
+
+	req, _ := http.NewRequest("GET", query, nil)
+	req.Header.Add("Content-Type", "application/octet-stream")
+	req.Header.Add("Accept", "application/octet-stream")
+	req.Header.Add("X-Requested-With", "XMLHttpRequest")
+	req.Header.Add("X-Forwarded-Host", xf.Host)
+	req.Header.Add("X-Forwarded-Port", xf.Port)
+	req.Header.Add("X-Forwarded-Proto", xf.Proto)
+	req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
+
+	if authenticate {
+		req.Header.Add("Authorization", token)
+	}
+
+	var fileName string
+	trials := 0
+	for ; trials < MaxTrials; trials++ {
+		if trials > 0 {
+			log.Debugf("Internal GET %s: trial %d\n", query, trials)
+		}
+
+		response, err := c.httpClient.Do(req)
+
+		// this is required to properly empty the buffer for the next call
+		defer func() {
+			io.Copy(ioutil.Discard, response.Body)
+		}()
+		if err != nil {
+			log.WithFields(event.Fields{
+				"query":        query,
+				"errorMessage": err.Error(),
+			}).Debug("Internal GET request error")
+		}
+		if response.StatusCode == http.StatusRequestTimeout {
+			// GET request timed out. Retrying..
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+
+		// Other error means outside the 2xx range
+		if response.StatusCode < 200 || response.StatusCode >= 300 {
+			log.WithFields(event.Fields{
+				"query":              query,
+				"responseStatusCode": response.StatusCode,
+			}).Errorf("Internal GET request error %d", response.StatusCode)
+			return http.StatusInternalServerError, fmt.Errorf("Internal GET request failed. Status code : %d", response.StatusCode)
+		}
+		if err != nil {
+			log.WithFields(event.Fields{
+				"query":              query,
+				"responseStatusCode": response.StatusCode,
+				"error":              err.Error(),
+			}).Error("Internal GET request error", err.Error())
+			return http.StatusInternalServerError, fmt.Errorf("Internal GET request failed. Forwarded error: " + err.Error())
+		}
+
+		// Check for content-disposition to extract optional fileName
+		contentDisposition := response.Header.Get("Content-Disposition")
+		if contentDisposition != "" {
+			_, params, err := mime.ParseMediaType(contentDisposition)
+			if err == nil {
+				fileName = params["filename"]
+			}
+		}
+
+		reader := response.Body
+		contentLength := response.ContentLength
+		contentType := response.Header.Get("Content-Type")
+
+		extraHeaders := map[string]string{
+			"Content-Disposition": `attachment; filename=` + fileName,
+		}
+		context.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
+
+		// success
+		return http.StatusOK, nil
+	}
+
+	return http.StatusRequestTimeout, fmt.Errorf("Internal GET request failed after %d trials", trials+1)
 }

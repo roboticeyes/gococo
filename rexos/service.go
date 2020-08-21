@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
 	"github.com/tidwall/gjson"
@@ -408,4 +409,24 @@ func GetNumberFromUrn(urn string) (string, *status.Status) {
 		return "", status.NewStatus([]byte{}, http.StatusInternalServerError, "Cannot get number from urn ")
 	}
 	return parts[2], nil
+}
+
+// GetFileWithServiceUser returns the file from the requested url which got fetched with the service user
+func (s *Service) GetFileWithServiceUser(ctx context.Context, c *gin.Context, url string) *status.Status {
+	code, err := s.client.GetFileWithServiceUser(ctx, c, url, true)
+
+	if err != nil {
+		log.WithFields(event.Fields{
+			"url": url,
+		}).Debug("Can not get file: " + err.Error())
+		return status.NewStatus([]byte{}, code, "Can not get file from "+url)
+	}
+	if code != http.StatusOK {
+		log.WithFields(event.Fields{
+			"url": url,
+		}).Debug("Can not get file ")
+		return status.NewStatus([]byte{}, code, "Can not get file from "+url)
+	}
+
+	return nil
 }
