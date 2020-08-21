@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
@@ -49,8 +48,6 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	}
 	var project Project
 	json.Unmarshal(projectResult, &project)
-	fmt.Println("ProjectResult")
-	fmt.Println(string(projectResult))
 
 	// find key of portal reference
 	key := gjson.Get(string(projectResult), "_embedded.rexReferences.#(type==\"portal\").key")
