@@ -484,39 +484,69 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 		req.Header.Add("Authorization", token)
 	}
 
-	response, err := c.httpClient.Do(req)
-	if err != nil {
-		log.WithFields(event.Fields{
-			"query":        query,
-			"errorMessage": err.Error(),
-		}).Debug("Internal GET request error")
-		return http.StatusServiceUnavailable, err
-	}
-	if response.StatusCode != http.StatusOK {
-		log.WithFields(event.Fields{
-			"query": query,
-		}).Debug("Internal GET request error")
-		return response.StatusCode, err
-	}
-
-	// Check for content-disposition to extract optional fileName
-	fileName := ""
-	contentDisposition := response.Header.Get("Content-Disposition")
-	if contentDisposition != "" {
-		_, params, err := mime.ParseMediaType(contentDisposition)
-		if err == nil {
-			fileName = params["filename"]
+	var fileName string
+	trials := 0
+	for ; trials < MaxTrials; trials++ {
+		if trials > 0 {
+			log.Debugf("Internal GET %s: trial %d\n", query, trials)
 		}
+
+		response, err := c.httpClient.Do(req)
+
+		// this is required to properly empty the buffer for the next call
+		defer func() {
+			io.Copy(ioutil.Discard, response.Body)
+		}()
+		if err != nil {
+			log.WithFields(event.Fields{
+				"query":        query,
+				"errorMessage": err.Error(),
+			}).Debug("Internal GET request error")
+		}
+		if response.StatusCode == http.StatusRequestTimeout {
+			// GET request timed out. Retrying..
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+
+		// Other error means outside the 2xx range
+		if response.StatusCode < 200 || response.StatusCode >= 300 {
+			log.WithFields(event.Fields{
+				"query":              query,
+				"responseStatusCode": response.StatusCode,
+			}).Errorf("Internal GET request error %d", response.StatusCode)
+			return http.StatusInternalServerError, fmt.Errorf("Internal GET request failed. Status code : %d", response.StatusCode)
+		}
+		if err != nil {
+			log.WithFields(event.Fields{
+				"query":              query,
+				"responseStatusCode": response.StatusCode,
+				"error":              err.Error(),
+			}).Error("Internal GET request error", err.Error())
+			return http.StatusInternalServerError, fmt.Errorf("Internal GET request failed. Forwarded error: " + err.Error())
+		}
+
+		// Check for content-disposition to extract optional fileName
+		contentDisposition := response.Header.Get("Content-Disposition")
+		if contentDisposition != "" {
+			_, params, err := mime.ParseMediaType(contentDisposition)
+			if err == nil {
+				fileName = params["filename"]
+			}
+		}
+
+		reader := response.Body
+		contentLength := response.ContentLength
+		contentType := response.Header.Get("Content-Type")
+
+		extraHeaders := map[string]string{
+			"Content-Disposition": `attachment; filename=` + fileName,
+		}
+		context.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
+
+		// success
+		return response.StatusCode, nil
 	}
 
-	reader := response.Body
-	contentLength := response.ContentLength
-	contentType := response.Header.Get("Content-Type")
-
-	extraHeaders := map[string]string{
-		"Content-Disposition": `attachment; filename=` + fileName,
-	}
-	context.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
-
-	return response.StatusCode, nil
+	return http.StatusRequestTimeout, fmt.Errorf("Internal GET request failed after %d trials", trials+1)
 }
