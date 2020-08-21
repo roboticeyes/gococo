@@ -541,7 +541,7 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 		context.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
 
 		// success
-		return response.StatusCode, nil
+		return http.StatusOK, nil
 	}
 
 	return http.StatusRequestTimeout, fmt.Errorf("Internal GET request failed after %d trials", trials+1)
