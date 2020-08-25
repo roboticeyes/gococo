@@ -546,3 +546,102 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 
 	return http.StatusRequestTimeout, fmt.Errorf("Internal GET request failed after %d trials", trials+1)
 }
+
+// GetFileReader performs the GET request with the credentials of the service user
+func (c *Client) GetFileReader(ctx context.Context, query string, authenticate bool) (io.ReadCloser, int, error) {
+	token, err := GetAccessTokenFromContext(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
+	}
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+	return c.getFileReader(token, xf, query, authenticate)
+}
+
+// getFile performs a GET request to the given query and forwards the file from the given url
+// The return values also contain the http status code and a potential error which has occured.
+// The request takes out the authentication information from the given context.
+func (c *Client) getFileReader(token string, xf XForwarded, query string, authenticate bool) (io.ReadCloser, int, error) {
+
+	req, _ := http.NewRequest("GET", query, nil)
+	req.Header.Add("Content-Type", "application/octet-stream")
+	req.Header.Add("Accept", "application/octet-stream")
+	req.Header.Add("X-Requested-With", "XMLHttpRequest")
+	req.Header.Add("X-Forwarded-Host", xf.Host)
+	req.Header.Add("X-Forwarded-Port", xf.Port)
+	req.Header.Add("X-Forwarded-Proto", xf.Proto)
+	req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
+
+	if authenticate {
+		req.Header.Add("Authorization", token)
+	}
+
+	// var fileName string
+	trials := 0
+	for ; trials < MaxTrials; trials++ {
+		if trials > 0 {
+			log.Debugf("Internal GET %s: trial %d\n", query, trials)
+		}
+
+		response, err := c.httpClient.Do(req)
+
+		// this is required to properly empty the buffer for the next call
+		// defer func() {
+		// 	io.Copy(ioutil.Discard, response.Body)
+		// }()
+		// if err != nil {
+		// 	log.WithFields(event.Fields{
+		// 		"query":        query,
+		// 		"errorMessage": err.Error(),
+		// 	}).Debug("Internal GET request error")
+		// }
+		if response.StatusCode == http.StatusRequestTimeout {
+			// GET request timed out. Retrying..
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+
+		// Other error means outside the 2xx range
+		if response.StatusCode < 200 || response.StatusCode >= 300 {
+			log.WithFields(event.Fields{
+				"query":              query,
+				"responseStatusCode": response.StatusCode,
+			}).Errorf("Internal GET request error %d", response.StatusCode)
+			return nil, http.StatusInternalServerError, fmt.Errorf("Internal GET request failed. Status code : %d", response.StatusCode)
+		}
+		if err != nil {
+			log.WithFields(event.Fields{
+				"query":              query,
+				"responseStatusCode": response.StatusCode,
+				"error":              err.Error(),
+			}).Error("Internal GET request error", err.Error())
+			return nil, http.StatusInternalServerError, fmt.Errorf("Internal GET request failed. Forwarded error: " + err.Error())
+		}
+
+		// Check for content-disposition to extract optional fileName
+		// contentDisposition := response.Header.Get("Content-Disposition")
+		// if contentDisposition != "" {
+		// 	_, params, err := mime.ParseMediaType(contentDisposition)
+		// 	if err == nil {
+		// 		fileName = params["filename"]
+		// 	}
+		// }
+
+		return response.Body, http.StatusOK, nil
+		// contentLength := response.ContentLength
+		// contentType := response.Header.Get("Content-Type")
+
+		// extraHeaders := map[string]string{
+		// 	"Content-Disposition": `attachment; filename=` + fileName,
+		// }
+		// context.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
+
+		// // success
+		// return http.StatusOK, nil
+	}
+
+	return nil, http.StatusRequestTimeout, fmt.Errorf("Internal GET request failed after %d trials", trials+1)
+}

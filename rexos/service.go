@@ -430,3 +430,24 @@ func (s *Service) GetFileWithServiceUser(ctx context.Context, c *gin.Context, ur
 
 	return nil
 }
+
+// DownloadFileContent uploads the actual binary file for a project file
+func (s *Service) GetFileReader(ctx context.Context, downloadURL string, authenticate bool) (io.ReadCloser, *status.Status) {
+	reader, code, err := s.client.GetFileReader(ctx, downloadURL, authenticate)
+
+	if err != nil {
+		log.WithFields(event.Fields{
+			"url":   downloadURL,
+			"error": err.Error(),
+		}).Debug("Can not get file reader: " + err.Error())
+		return nil, status.NewStatus([]byte{}, code, "Can not get file reader "+downloadURL)
+	}
+	if code != http.StatusOK {
+		log.WithFields(event.Fields{
+			"url": downloadURL,
+		}).Debug("Can not get file reader")
+		return nil, status.NewStatus([]byte{}, code, "Can not get file reader "+downloadURL)
+	}
+
+	return reader, nil
+}
