@@ -26,9 +26,9 @@ type UserAndProjectData struct {
 
 // ProjectInvitation is a container for user project and sharing information
 type ProjectInvitation struct {
-	InviteUser UserAndProjectData `json:"inviteUser"`
-	// ProjectAPIUrl string     `json:"projectAPIUrl"`
-	Sharing string `json:"sharing"`
+	InviteUser    UserAndProjectData `json:"inviteUser"`
+	ProjectAPIUrl string             `json:"projectAPIUrl"`
+	Sharing       string             `json:"sharing"`
 }
 
 // CreateProjectInvitation shares a project with a new user
@@ -55,7 +55,7 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	query = invitationURL
 	invitation.InviteUser.ProjectName = project.Name
 	invitation.InviteUser.ProjectURL = rexCodesResourceURL + "/" + key.String()
-	// invitation.ProjectAPIUrl = invitation.InviteUser.ProjectUrl
+	invitation.ProjectAPIUrl = invitation.InviteUser.ProjectURL
 
 	_, ret = s.CreateHalResource(ctx, "Auth", query, invitation)
 	if ret != nil {
