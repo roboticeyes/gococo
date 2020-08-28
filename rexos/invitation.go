@@ -24,15 +24,15 @@ type UserAndProjectData struct {
 	ProjectURL  string `json:"projectUrl"`
 }
 
-// ProjectInvitation is a container for user project and sharing information
+// ProjectInvitation container for the user to invite and the sharing information
 type ProjectInvitation struct {
-	InviteUser UserAndProjectData `json:"inviteUser"`
-	// ProjectAPIUrl string     `json:"projectAPIUrl"`
-	Sharing string `json:"sharing"`
+	User  UserData `json:"user"`
+	Write bool     `json:"write"`
+	Read  bool     `json:"read"`
 }
 
 // CreateProjectInvitation shares a project with a new user
-func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string, invitation ProjectInvitation, projectResourceURL, invitationURL, rexCodesResourceURL string) (ProjectInvitation, *status.Status) {
+func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string, projectInvitation ProjectInvitation, projectResourceURL, userResourceURL, invitationURL, rexCodesResourceURL string) (ProjectInvitation, *status.Status) {
 	// find project
 	query := QueryFindByUrn(projectResourceURL, projectUrn)
 	projectResult, ret := s.GetHalResource(ctx, "Project", query)
@@ -53,11 +53,14 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	key := gjson.Get(string(projectResult), "_embedded.rexReferences.#(type==\"portal\").key")
 
 	query = invitationURL
-	invitation.InviteUser.ProjectName = project.Name
-	invitation.InviteUser.ProjectURL = rexCodesResourceURL + "/" + key.String()
-	// invitation.ProjectAPIUrl = invitation.InviteUser.ProjectUrl
+	var invitation UserAndProjectData
+	invitation.Email = projectInvitation.User.Email
+	invitation.FirstName = projectInvitation.User.FirstName
+	invitation.LastName = projectInvitation.User.LastName
+	invitation.ProjectName = project.Name
+	invitation.ProjectURL = rexCodesResourceURL + "/" + key.String()
 
-	_, ret = s.CreateHalResource(ctx, "Auth", query, invitation)
+	invResult, ret := s.CreateHalResource(ctx, "Auth", query, invitation)
 	if ret != nil {
 		log.WithFields(event.Fields{
 			"status": ret,
@@ -67,7 +70,37 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 		ret.Message = "Could not create invitation. Please make sure you have the correct access rights."
 		return ProjectInvitation{}, ret
 	}
-	return invitation, nil
+	// find userId
+	userID := gjson.Get(string(invResult), "userId").String()
+
+	// share project with user
+	action := writeAction
+	if projectInvitation.Read {
+		action = readAction
+	}
+
+	projectNumber, ret := GetNumberFromUrn(projectUrn)
+	if ret != nil {
+		return projectInvitation, ret
+	}
+
+	share := UserShareReduced{UserID: userID, Action: action}
+
+	// update user sharing
+	query = projectResourceURL + "/" + projectNumber + "/userShares"
+	_, ret = s.CreateHalResource(ctx, "Projects", query, share)
+	if ret != nil {
+		log.WithFields(event.Fields{
+			"status":     ret,
+			"projectUrn": projectUrn,
+			"query":      query,
+		}).Error("Failed to create user share information")
+
+		ret.Message = "Cannot not create user share information for the project. Please make sure you have the correct access rights."
+		return projectInvitation, ret
+	}
+
+	return projectInvitation, nil
 }
 
 // PrettyJson for development use
