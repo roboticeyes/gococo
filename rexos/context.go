@@ -51,6 +51,14 @@ func GetRexContext(c *gin.Context) (context.Context, context.CancelFunc) {
 	contextData.XForwarded.Prefix = c.Request.Header.Get("X-Forwarded-Prefix")
 	contextData.XForwarded.Proto = c.Request.Header.Get("X-Forwarded-Proto")
 
+	fmt.Println("REX Context:")
+	fmt.Println("HOST: " + c.Request.Header.Get("X-Forwarded-Host"))
+	fmt.Println("PORT: " + c.Request.Header.Get("X-Forwarded-Port"))
+	fmt.Println("PREFIX: " + c.Request.Header.Get("X-Forwarded-Prefix"))
+	fmt.Println("PROTO: " + c.Request.Header.Get("X-Forwarded-Proto"))
+	fmt.Println("---------------------------")
+	fmt.Println(c.Request.Host)
+
 	ctx := context.WithValue(context.Background(), ContextDataKey, contextData)
 	return context.WithTimeout(ctx, time.Second*2)
 }

@@ -172,6 +172,11 @@ func (c *Client) get(token string, xf XForwarded, query string, authenticate boo
 	req.Header.Add("X-Forwarded-Proto", xf.Proto)
 	req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
 
+	fmt.Println("HOST: " + xf.Host)
+	fmt.Println("PORT: " + xf.Port)
+	fmt.Println("PROTO: " + xf.Proto)
+	fmt.Println("PREFIX: " + c.config.BasePathExtern)
+
 	if authenticate {
 		req.Header.Add("Authorization", token)
 	}
@@ -545,4 +550,81 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 	}
 
 	return http.StatusRequestTimeout, fmt.Errorf("Internal GET request failed after %d trials", trials+1)
+}
+
+// Post performs the GET request with the credentials of the client user (stored in the token)
+func (c *Client) PostWithXForwarded(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+
+	token, err := GetAccessTokenFromContext(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
+	}
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.postWithXForwarded(token, xf, query, payload, contentType)
+}
+
+// Post performs a POST request to the given query, using the given payload as data, and the provided
+// content-type. The content-type is typically 'application/json', but can also be of formdata in case of
+// binary data upload.
+// WARNING: Do NOT implement retries here. POST is not considered a safe nor idempotent HTTP method!
+func (c *Client) postWithXForwarded(token string, xf XForwarded, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+
+	req, _ := http.NewRequest("POST", query, payload)
+	req.Header.Add("Content-Type", contentType)
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("X-Requested-With", "XMLHttpRequest")
+	req.Header.Add("Authorization", token)
+	req.Header.Add("X-Forwarded-Host", xf.Host)
+	req.Header.Add("X-Forwarded-Port", xf.Port)
+	req.Header.Add("X-Forwarded-Proto", xf.Proto)
+	req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
+
+	resp, err := c.httpClient.Do(req)
+
+	if err != nil {
+		log.WithFields(event.Fields{
+			"query":        query,
+			"contentType":  contentType,
+			"errorMessage": err.Error(),
+		}).Debug("Internal POST request error")
+		return []byte{}, http.StatusInternalServerError, nil
+	}
+
+	// this is required to properly empty the buffer for the next call
+	defer func() {
+		io.Copy(ioutil.Discard, resp.Body)
+	}()
+
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if resp.StatusCode == http.StatusConflict {
+		// Convention: Do not try to query and return existing resource here.
+		log.WithFields(event.Fields{
+			"query":       query,
+			"contentType": contentType,
+		}).Debug("Resource already exists")
+		return body, resp.StatusCode, nil
+	}
+
+	if resp.StatusCode == http.StatusRequestTimeout {
+		// POST request timed out.
+		return []byte{}, http.StatusRequestTimeout, fmt.Errorf("Internal POST request timed out")
+	}
+
+	// Other error means outside the 2xx range
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.WithFields(event.Fields{
+			"body": string(body),
+		}).Debugf("Internal POST request did not return 2xx as expected but returned %d", resp.StatusCode)
+		return body, resp.StatusCode, fmt.Errorf("Internal POST request failed")
+	}
+
+	// success
+	return body, resp.StatusCode, err
+
 }

@@ -430,3 +430,43 @@ func (s *Service) GetFileWithServiceUser(ctx context.Context, c *gin.Context, ur
 
 	return nil
 }
+
+// CreateHalResource creates a new resource with the caller's credentials
+func (s *Service) CreateHalResourceWithXForwarded(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
+	return s.createHalResourceWithXForwarded(ctx, resourceName, url, r)
+}
+
+// CreateHalResource creates a new resource which needs to be able to write itself to the proper
+// JSON string. In case of success, the body is returned. The resourceName is just for error handling.
+// The url is required to identify the endpoint
+func (s *Service) createHalResourceWithXForwarded(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
+
+	var body []byte
+	var code int
+	var err error
+
+	b := new(bytes.Buffer)
+	json.NewEncoder(b).Encode(r)
+
+	body, code, err = s.client.PostWithXForwarded(ctx, url, b, "application/json")
+
+	if err != nil {
+		log.WithFields(event.Fields{
+			"resourceName": resourceName,
+			"code":         code,
+			"url":          url,
+		}).Debug("Can not create HAL resource: " + err.Error())
+		return []byte{}, status.NewStatus(body, code, "Can not create resource "+resourceName)
+	}
+
+	// A POST request should return a value in range of [200,300[
+	if code < http.StatusOK || code >= http.StatusMultipleChoices {
+		log.WithFields(event.Fields{
+			"resourceName": resourceName,
+			"code":         code,
+			"url":          url,
+		}).Debug("Can not create HAL resource")
+		return []byte{}, status.NewStatus(body, code, "Can not create resource "+resourceName)
+	}
+	return body, nil
+}
