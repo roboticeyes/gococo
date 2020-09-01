@@ -19,6 +19,7 @@ type XForwarded struct {
 	Port   string
 	Prefix string
 	Proto  string
+	For    string
 }
 
 // ContextData is used as payload for the REX context in the interface
@@ -50,6 +51,7 @@ func GetRexContext(c *gin.Context) (context.Context, context.CancelFunc) {
 	contextData.XForwarded.Port = c.Request.Header.Get("X-Forwarded-Port")
 	contextData.XForwarded.Prefix = c.Request.Header.Get("X-Forwarded-Prefix")
 	contextData.XForwarded.Proto = c.Request.Header.Get("X-Forwarded-Proto")
+	contextData.XForwarded.For = c.Request.Header.Get("X-Forwarded-For")
 
 	ctx := context.WithValue(context.Background(), ContextDataKey, contextData)
 	return context.WithTimeout(ctx, time.Second*2)

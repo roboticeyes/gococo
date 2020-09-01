@@ -60,7 +60,7 @@ func (s *Service) CreateProjectInvitation(ctx context.Context, projectUrn string
 	invitation.ProjectName = project.Name
 	invitation.ProjectURL = rexCodesResourceURL + "/" + key.String()
 
-	invResult, ret := s.CreateHalResource(ctx, "Auth", query, invitation)
+	invResult, ret := s.CreateHalResourceWithXF(ctx, "Auth", query, invitation)
 	if ret != nil {
 		log.WithFields(event.Fields{
 			"status": ret,

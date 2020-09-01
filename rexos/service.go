@@ -24,6 +24,10 @@ type Service struct {
 	client *Client // this is the client which is used to perform the REXos calls
 }
 
+type postFunction func(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error)
+type getFunction func(ctx context.Context, query string, authenticate bool) (string, []byte, int, error)
+type patchFunction func(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error)
+
 // NewService returns a new rexos service which is implementing the RexOSAccessor interface
 func NewService(config Config) *Service {
 
@@ -61,30 +65,36 @@ func GetProjectLinkFromHal(json []byte) string {
 	return StripTemplateParameter(gjson.Get(string(json), "_links.project.href").String())
 }
 
-// GetHalResourceWithServiceUser returns the requested resource which got fetched with the service user
+// GetHalResourceWithServiceUser returns the requested resource which got fetched with the service user - x-forwarded header fields added
 func (s *Service) GetHalResourceWithServiceUser(ctx context.Context, resourceName, url string) ([]byte, *status.Status) {
-	return s.getHalResource(ctx, resourceName, url, true)
+	return s.getHalResource(ctx, resourceName, url, s.client.GetWithServiceUser)
 }
 
-// GetHalResource returns the requested resource
+// GetHalResource returns the requested resource - x-forwarded header fields added
 func (s *Service) GetHalResource(ctx context.Context, resourceName, url string) ([]byte, *status.Status) {
-	return s.getHalResource(ctx, resourceName, url, false)
+	return s.getHalResource(ctx, resourceName, url, s.client.Get)
+}
+
+// GetHalResourceWithServiceUserNoXF returns the requested resource which got fetched with the service user - x-forwarded header fields not added
+func (s *Service) GetHalResourceWithServiceUserNoXF(ctx context.Context, resourceName, url string) ([]byte, *status.Status) {
+	return s.getHalResource(ctx, resourceName, url, s.client.GetWithServiceUserNoXF)
+}
+
+// GetHalResourceNoXF returns the requested resource - x-forwarded header fields not added
+func (s *Service) GetHalResourceNoXF(ctx context.Context, resourceName, url string) ([]byte, *status.Status) {
+	return s.getHalResource(ctx, resourceName, url, s.client.GetNoXF)
 }
 
 // getHalResource performs the GET request for getting a rexos resource
 // Returns the body in case of success. If an error occurred, then the according
 // status is returned. The resourceName is used for the error message
-func (s *Service) getHalResource(ctx context.Context, resourceName, url string, useServiceUser bool) ([]byte, *status.Status) {
+func (s *Service) getHalResource(ctx context.Context, resourceName, url string, gf getFunction) ([]byte, *status.Status) {
 
 	var body []byte
 	var code int
 	var err error
 
-	if useServiceUser {
-		_, body, code, err = s.client.GetWithServiceUser(ctx, url, true)
-	} else {
-		_, body, code, err = s.client.Get(ctx, url, true)
-	}
+	_, body, code, err = gf(ctx, url, true)
 
 	if err != nil {
 		log.WithFields(event.Fields{
@@ -107,20 +117,30 @@ func (s *Service) getHalResource(ctx context.Context, resourceName, url string, 
 	return body, nil
 }
 
-// CreateHalResourceWithServiceUser uses the service user credential to create a new resource
+// CreateHalResourceWithServiceUser uses the service user credential to create a new resource - no x-forwarded header fields added
 func (s *Service) CreateHalResourceWithServiceUser(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
-	return s.createHalResource(ctx, resourceName, url, r, true)
+	return s.createHalResource(ctx, resourceName, url, r, s.client.PostWithServiceUser)
 }
 
-// CreateHalResource creates a new resource with the caller's credentials
+// CreateHalResource creates a new resource with the caller's credentialsa - no x-forwarded header fields added
 func (s *Service) CreateHalResource(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
-	return s.createHalResource(ctx, resourceName, url, r, false)
+	return s.createHalResource(ctx, resourceName, url, r, s.client.Post)
+}
+
+// CreateHalResourceWithServiceUserWithXF uses the service user credential to create a new resource - x-forwarded header fields added
+func (s *Service) CreateHalResourceWithServiceUserWithXF(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
+	return s.createHalResource(ctx, resourceName, url, r, s.client.PostWithServiceUserWithXF)
+}
+
+// CreateHalResourceWithXF creates a new resource with the caller's credentials - x-forwarded header fields added
+func (s *Service) CreateHalResourceWithXF(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
+	return s.createHalResource(ctx, resourceName, url, r, s.client.PostWithXF)
 }
 
 // CreateHalResource creates a new resource which needs to be able to write itself to the proper
 // JSON string. In case of success, the body is returned. The resourceName is just for error handling.
 // The url is required to identify the endpoint
-func (s *Service) createHalResource(ctx context.Context, resourceName, url string, r interface{}, useServiceUser bool) ([]byte, *status.Status) {
+func (s *Service) createHalResource(ctx context.Context, resourceName, url string, r interface{}, pf postFunction) ([]byte, *status.Status) {
 
 	var body []byte
 	var code int
@@ -129,11 +149,7 @@ func (s *Service) createHalResource(ctx context.Context, resourceName, url strin
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(r)
 
-	if useServiceUser {
-		body, code, err = s.client.PostWithServiceUser(ctx, url, b, "application/json")
-	} else {
-		body, code, err = s.client.Post(ctx, url, b, "application/json")
-	}
+	body, code, err = pf(ctx, url, b, "application/json")
 	if err != nil {
 		log.WithFields(event.Fields{
 			"resourceName": resourceName,
@@ -157,16 +173,26 @@ func (s *Service) createHalResource(ctx context.Context, resourceName, url strin
 
 // PatchHalResourceWithServiceUser patches the resource with the service user
 func (s *Service) PatchHalResourceWithServiceUser(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
-	return s.patchHalResource(ctx, resourceName, url, r, true)
+	return s.patchHalResource(ctx, resourceName, url, r, s.client.PatchWithServiceUser)
 }
 
 // PatchHalResource patches the resource with the caller's credentials
 func (s *Service) PatchHalResource(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
-	return s.patchHalResource(ctx, resourceName, url, r, false)
+	return s.patchHalResource(ctx, resourceName, url, r, s.client.Patch)
+}
+
+// PatchHalResourceWithServiceUserWithXF patches the resource with the service user
+func (s *Service) PatchHalResourceWithServiceUserWithXF(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
+	return s.patchHalResource(ctx, resourceName, url, r, s.client.PatchWithServiceUserWithXF)
+}
+
+// PatchHalResourceWithXF patches the resource with the caller's credentials
+func (s *Service) PatchHalResourceWithXF(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
+	return s.patchHalResource(ctx, resourceName, url, r, s.client.PatchWithXF)
 }
 
 // PatchHalResource sends a partial update to the requested resource
-func (s *Service) patchHalResource(ctx context.Context, resourceName, url string, r interface{}, useServiceUser bool) ([]byte, *status.Status) {
+func (s *Service) patchHalResource(ctx context.Context, resourceName, url string, r interface{}, pf patchFunction) ([]byte, *status.Status) {
 
 	var body []byte
 	var code int
@@ -175,11 +201,7 @@ func (s *Service) patchHalResource(ctx context.Context, resourceName, url string
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(r)
 
-	if useServiceUser {
-		body, code, err = s.client.PatchWithServiceUser(ctx, url, b, "application/json")
-	} else {
-		body, code, err = s.client.Patch(ctx, url, b, "application/json")
-	}
+	body, code, err = pf(ctx, url, b, "application/json")
 	if err != nil {
 		log.WithFields(event.Fields{
 			"resourceName": resourceName,
