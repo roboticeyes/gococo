@@ -117,6 +117,7 @@ func (c *Client) scheduleTokenRefreshHandler() {
 	c.refreshToken()
 
 	var interval uint64 = 600
+
 	if (c.serviceToken.ExpiresIn - 30) > 60 {
 		interval = c.serviceToken.ExpiresIn - 30
 	}
@@ -139,7 +140,7 @@ func (c *Client) GetWithServiceUser(ctx context.Context, query string, authentic
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
 	c.mutex.Unlock()
-	return c.get(token, xf, query, authenticate)
+	return c.get(token, xf, query, authenticate, true)
 }
 
 // Get performs the GET request with the credentials of the client user (stored in the token)
@@ -154,28 +155,61 @@ func (c *Client) Get(ctx context.Context, query string, authenticate bool) (stri
 	if err != nil {
 		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
 	}
-	return c.get(token, xf, query, authenticate)
+	return c.get(token, xf, query, authenticate, true)
+}
+
+// GetWithServiceUserNoXF performs the GET request with the credentials of the service user - no x-forwarded header added
+func (c *Client) GetWithServiceUserNoXF(ctx context.Context, query string, authenticate bool) (string, []byte, int, error) {
+	if c.config.NotApplyServiceUser {
+		return "", nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
+
+	c.mutex.Lock()
+	token := "Bearer " + c.serviceToken.AccessToken
+	c.mutex.Unlock()
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.get(token, xf, query, authenticate, false)
+}
+
+// GetNoXF performs the GET request with the credentials of the client user (stored in the token) - no x-forwarded header added
+func (c *Client) GetNoXF(ctx context.Context, query string, authenticate bool) (string, []byte, int, error) {
+
+	token, err := GetAccessTokenFromContext(ctx)
+	if err != nil {
+		return "", nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
+	}
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.get(token, xf, query, authenticate, false)
 }
 
 // Get performs a GET request to the given query and returns the body response which is of type JSON.
 // The return values also contain the http status code and a potential error which has occured.
 // The request will be setup as JSON request and also takes out the authentication information from
 // the given context.
-func (c *Client) get(token string, xf XForwarded, query string, authenticate bool) (string, []byte, int, error) {
+func (c *Client) get(token string, xf XForwarded, query string, authenticate bool, addXForwardedHeader bool) (string, []byte, int, error) {
 
 	req, _ := http.NewRequest("GET", query, nil)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("X-Requested-With", "XMLHttpRequest")
-	req.Header.Add("X-Forwarded-Host", xf.Host)
-	req.Header.Add("X-Forwarded-Port", xf.Port)
-	req.Header.Add("X-Forwarded-Proto", xf.Proto)
-	req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
+	req.Header.Add("X-Forwarded-For", xf.For)
 
-	fmt.Println("HOST: " + xf.Host)
-	fmt.Println("PORT: " + xf.Port)
-	fmt.Println("PROTO: " + xf.Proto)
-	fmt.Println("PREFIX: " + c.config.BasePathExtern)
+	if addXForwardedHeader {
+		req.Header.Add("X-Forwarded-Host", xf.Host)
+		req.Header.Add("X-Forwarded-Port", xf.Port)
+		req.Header.Add("X-Forwarded-Proto", xf.Proto)
+		req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
+	}
 
 	if authenticate {
 		req.Header.Add("Authorization", token)
@@ -245,10 +279,16 @@ func (c *Client) PostWithServiceUser(ctx context.Context, query string, payload 
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
 	c.mutex.Unlock()
-	return c.post(token, query, payload, contentType)
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.post(token, xf, query, payload, contentType, false)
 }
 
-// Post performs the GET request with the credentials of the client user (stored in the token)
+// Post performs the POST request with the credentials of the client user (stored in the token)
 func (c *Client) Post(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
 
 	token, err := GetAccessTokenFromContext(ctx)
@@ -256,20 +296,66 @@ func (c *Client) Post(ctx context.Context, query string, payload io.Reader, cont
 		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
 	}
 
-	return c.post(token, query, payload, contentType)
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.post(token, xf, query, payload, contentType, false)
+}
+
+// PostWithXF performs the POST request with the credentials of the client user (stored in the token) - x-forwareded header fields added
+func (c *Client) PostWithXF(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+
+	token, err := GetAccessTokenFromContext(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
+	}
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.post(token, xf, query, payload, contentType, true)
+}
+
+// PostWithServiceUserWithXF performs the POST request with the credentials of the service user - x-forwareded header fields added
+func (c *Client) PostWithServiceUserWithXF(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+	if c.config.NotApplyServiceUser {
+		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
+	c.mutex.Lock()
+	token := "Bearer " + c.serviceToken.AccessToken
+	c.mutex.Unlock()
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.post(token, xf, query, payload, contentType, true)
 }
 
 // Post performs a POST request to the given query, using the given payload as data, and the provided
 // content-type. The content-type is typically 'application/json', but can also be of formdata in case of
 // binary data upload.
 // WARNING: Do NOT implement retries here. POST is not considered a safe nor idempotent HTTP method!
-func (c *Client) post(token string, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+func (c *Client) post(token string, xf XForwarded, query string, payload io.Reader, contentType string, addXForwardedHeader bool) ([]byte, int, error) {
 
 	req, _ := http.NewRequest("POST", query, payload)
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("X-Requested-With", "XMLHttpRequest")
 	req.Header.Add("Authorization", token)
+	req.Header.Add("X-Forwarded-For", xf.For)
+
+	if addXForwardedHeader {
+		req.Header.Add("X-Forwarded-Host", xf.Host)
+		req.Header.Add("X-Forwarded-Port", xf.Port)
+		req.Header.Add("X-Forwarded-Proto", xf.Proto)
+		req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
+	}
 
 	resp, err := c.httpClient.Do(req)
 
@@ -325,7 +411,13 @@ func (c *Client) PatchWithServiceUser(ctx context.Context, query string, payload
 	c.mutex.Lock()
 	token := "Bearer " + c.serviceToken.AccessToken
 	c.mutex.Unlock()
-	return c.patch(token, query, payload, contentType)
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.patch(token, xf, query, payload, contentType, false)
 }
 
 // Patch performs the PATCH request with the credentials of the client user (stored in the token)
@@ -336,20 +428,67 @@ func (c *Client) Patch(ctx context.Context, query string, payload io.Reader, con
 		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
 	}
 
-	return c.patch(token, query, payload, contentType)
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.patch(token, xf, query, payload, contentType, false)
+}
+
+// PatchWithServiceUserWithXF performs the PATCH request with the credentials of the service user
+func (c *Client) PatchWithServiceUserWithXF(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+	if c.config.NotApplyServiceUser {
+		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
+
+	c.mutex.Lock()
+	token := "Bearer " + c.serviceToken.AccessToken
+	c.mutex.Unlock()
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.patch(token, xf, query, payload, contentType, true)
+}
+
+// PatchWithXF performs the PATCH request with the credentials of the client user (stored in the token)
+func (c *Client) PatchWithXF(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+
+	token, err := GetAccessTokenFromContext(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
+	}
+
+	xf, err := GetXForwarded(ctx)
+	if err != nil {
+		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
+	}
+
+	return c.patch(token, xf, query, payload, contentType, true)
 }
 
 // Patch performs a PATCH request to the given query, using the given payload as data, and the provided
 // content-type. The content-type is typically 'application/json', but can also be of formdata in case of
 // binary data upload.
 // WARNING: Do NOT implement retries here. PATCH is not considered a safe nor idempotent HTTP method!
-func (c *Client) patch(token, query string, payload io.Reader, contentType string) ([]byte, int, error) {
+func (c *Client) patch(token string, xf XForwarded, query string, payload io.Reader, contentType string, addXForwardedHeader bool) ([]byte, int, error) {
 
 	req, _ := http.NewRequest("PATCH", query, payload)
 	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("X-Requested-With", "XMLHttpRequest")
 	req.Header.Add("Authorization", token)
+	req.Header.Add("X-Forwarded-For", xf.For)
+
+	if addXForwardedHeader {
+		req.Header.Add("X-Forwarded-Host", xf.Host)
+		req.Header.Add("X-Forwarded-Port", xf.Port)
+		req.Header.Add("X-Forwarded-Proto", xf.Proto)
+		req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
+	}
 
 	resp, err := c.httpClient.Do(req)
 
@@ -478,6 +617,7 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 	req.Header.Add("X-Requested-With", "XMLHttpRequest")
 	req.Header.Add("X-Forwarded-Host", xf.Host)
 	req.Header.Add("X-Forwarded-Port", xf.Port)
+	req.Header.Add("X-Forwarded-For", xf.For)
 	req.Header.Add("X-Forwarded-Proto", xf.Proto)
 	req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
 
@@ -550,81 +690,4 @@ func (c *Client) getFile(context *gin.Context, token string, xf XForwarded, quer
 	}
 
 	return http.StatusRequestTimeout, fmt.Errorf("Internal GET request failed after %d trials", trials+1)
-}
-
-// Post performs the GET request with the credentials of the client user (stored in the token)
-func (c *Client) PostWithXForwarded(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error) {
-
-	token, err := GetAccessTokenFromContext(ctx)
-	if err != nil {
-		return nil, http.StatusForbidden, fmt.Errorf("Missing token in context")
-	}
-
-	xf, err := GetXForwarded(ctx)
-	if err != nil {
-		return nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
-	}
-
-	return c.postWithXForwarded(token, xf, query, payload, contentType)
-}
-
-// Post performs a POST request to the given query, using the given payload as data, and the provided
-// content-type. The content-type is typically 'application/json', but can also be of formdata in case of
-// binary data upload.
-// WARNING: Do NOT implement retries here. POST is not considered a safe nor idempotent HTTP method!
-func (c *Client) postWithXForwarded(token string, xf XForwarded, query string, payload io.Reader, contentType string) ([]byte, int, error) {
-
-	req, _ := http.NewRequest("POST", query, payload)
-	req.Header.Add("Content-Type", contentType)
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("X-Requested-With", "XMLHttpRequest")
-	req.Header.Add("Authorization", token)
-	req.Header.Add("X-Forwarded-Host", xf.Host)
-	req.Header.Add("X-Forwarded-Port", xf.Port)
-	req.Header.Add("X-Forwarded-Proto", xf.Proto)
-	req.Header.Add("X-Forwarded-Prefix", c.config.BasePathExtern)
-
-	resp, err := c.httpClient.Do(req)
-
-	if err != nil {
-		log.WithFields(event.Fields{
-			"query":        query,
-			"contentType":  contentType,
-			"errorMessage": err.Error(),
-		}).Debug("Internal POST request error")
-		return []byte{}, http.StatusInternalServerError, nil
-	}
-
-	// this is required to properly empty the buffer for the next call
-	defer func() {
-		io.Copy(ioutil.Discard, resp.Body)
-	}()
-
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if resp.StatusCode == http.StatusConflict {
-		// Convention: Do not try to query and return existing resource here.
-		log.WithFields(event.Fields{
-			"query":       query,
-			"contentType": contentType,
-		}).Debug("Resource already exists")
-		return body, resp.StatusCode, nil
-	}
-
-	if resp.StatusCode == http.StatusRequestTimeout {
-		// POST request timed out.
-		return []byte{}, http.StatusRequestTimeout, fmt.Errorf("Internal POST request timed out")
-	}
-
-	// Other error means outside the 2xx range
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.WithFields(event.Fields{
-			"body": string(body),
-		}).Debugf("Internal POST request did not return 2xx as expected but returned %d", resp.StatusCode)
-		return body, resp.StatusCode, fmt.Errorf("Internal POST request failed")
-	}
-
-	// success
-	return body, resp.StatusCode, err
-
 }
