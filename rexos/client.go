@@ -71,7 +71,7 @@ func NewClient(cfg Config) *Client {
 	return client
 }
 
-func (c *Client) refreshToken() {
+func (c *Client) refreshToken() bool {
 
 	log.Info("Refreshing service user token ...")
 
@@ -86,7 +86,7 @@ func (c *Client) refreshToken() {
 
 	if err != nil {
 		log.Error("Service user authentication: internal POST request error -", err)
-		return
+		return false
 	}
 
 	// this is required to properly empty the buffer for the next call
@@ -98,7 +98,7 @@ func (c *Client) refreshToken() {
 
 	if err != nil {
 		log.Error("Service user authentication: cannot get body for authentication -", err)
-		return
+		return false
 	}
 
 	c.mutex.Lock()
@@ -106,20 +106,27 @@ func (c *Client) refreshToken() {
 	err = json.Unmarshal(body, &c.serviceToken)
 	if err != nil {
 		log.Error("Service user authentication: cannot decode JWT token -", err)
-		return
+		return false
 	}
+	return true
 }
 
 // scheduleTokenRefreshHandler starts a cron job which makes sure that the service user always has
 // a valid token.
 func (c *Client) scheduleTokenRefreshHandler() {
 
-	c.refreshToken()
+	// if the first get request fails because the auth server is not ready (may happen when all services
+	// of an instance are started) try again until success
+	for !c.refreshToken() {
+		log.Error("Retry first connection... ")
+		time.Sleep(30 * time.Second)
+	}
 
-	var interval uint64 = 600
-
-	if (c.serviceToken.ExpiresIn - 30) > 60 {
+	interval := c.serviceToken.ExpiresIn
+	if (c.serviceToken.ExpiresIn > 30) && (c.serviceToken.ExpiresIn-30) > 60 {
 		interval = c.serviceToken.ExpiresIn - 30
+	} else {
+		interval = 30
 	}
 	// Take expiration attribute and make sure to early update the token (30 seconds before)
 	log.Info("Starting cron job to refresh service user token with interval " + strconv.FormatUint(interval, 10) + "s")
