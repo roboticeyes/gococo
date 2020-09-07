@@ -10,25 +10,14 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// Address user address
-type Address struct {
-	Zip         *string `json:"zip,omitempty"  example:"8010"`
-	City        *string `json:"city,omitempty" example:"Graz"`
-	Address     *string `json:"address,omitempty" example:"Josef Huber Gasse"`
-	State       *string `json:"state,omitempty"`
-	CountryName *string `json:"countryname,omitempty" example:"Austria"`
-	Country     *string `json:"country,omitempty"`
-}
-
 // UserInformation is a container for detailed user information
 type UserInformation struct {
-	FirstName *string  `json:"firstName,omitempty" example:"Josef"`
-	LastName  *string  `json:"lastName,omitempty" example:"Huber"`
-	LastLogin string   `json:"lastLogin,omitempty"`
-	Address   *Address `json:"address,omitempty"`
-	Email     *string  `json:"email,omitempty" example:"josef.huber@gasse.at"`
-	Company   *string  `json:"company,omitempty" example:"Robotic Eyes"`
-	UID       *string  `json:"uid,omitempty"`
+	FirstName *string `json:"firstName" example:"Josef"`
+	LastName  *string `json:"lastName" example:"Huber"`
+	LastLogin string  `json:"lastLogin"`
+	Email     *string `json:"email" example:"josef.huber@gasse.at"`
+	UserID    *string `json:"userId" example:"userId"`
+	UserName  *string `json:"userName" example:"userName"`
 }
 
 // UserStatistics is a container for global project information for the user
@@ -52,25 +41,18 @@ type UserLicenses struct {
 	UserLicenses []License `json:"userLicenses"`
 }
 
-// UserDescription struct to update /userDescriptions
-type UserDescription struct {
-	Address Address `json:"address,omitempty"`
-	Company string  `json:"company,omitempty"`
-	UID     string  `json:"uid,omitempty"`
-}
-
-// UserInfo struct to update /users/current
-type UserInfo struct {
-	Email     string `json:"email,omitempty"`
-	FirstName string `json:"firstName,omitempty"`
-	LastName  string `json:"lastName,omitempty"`
-}
-
-// GetUserInformation returns detailed user information
+// GetUserInformation returns current user information
 func (s *Service) GetUserInformation(ctx context.Context, resourceURL string) (UserInformation, *status.Status) {
+	currentUser, _, ret := s.GetCurrentUser(ctx, resourceURL)
+	return currentUser, ret
+}
+
+//GetCurrentUser returns current user information and a string representing the user
+func (s *Service) GetCurrentUser(ctx context.Context, resourceURL string) (UserInformation, string, *status.Status) {
+
 	query := resourceURL + "/current"
 
-	currentUserResult, ret := s.GetHalResource(ctx, "User", query)
+	currentUserResult, ret := s.GetHalResourceNoXF(ctx, "User", query)
 	if ret != nil {
 		log.WithFields(event.Fields{
 			"status": ret,
@@ -78,12 +60,12 @@ func (s *Service) GetUserInformation(ctx context.Context, resourceURL string) (U
 		}).Error("Failed to get current user")
 
 		ret.Message = "Could not get current user. Please make sure you have the correct access rights."
-		return UserInformation{}, ret
+		return UserInformation{}, "", ret
 	}
 
 	// get user properties name, email
 	userResultLink := StripTemplateParameter(gjson.Get(string(currentUserResult), "_links.user.href").String())
-	userResult, ret := s.GetHalResource(ctx, "User", userResultLink)
+	userResult, ret := s.GetHalResourceNoXF(ctx, "User", userResultLink)
 	if ret != nil {
 		log.WithFields(event.Fields{
 			"status": ret,
@@ -91,36 +73,13 @@ func (s *Service) GetUserInformation(ctx context.Context, resourceURL string) (U
 		}).Error("Failed to get user information")
 
 		ret.Message = "Could not get user information. Please make sure you have the correct access rights."
-		return UserInformation{}, ret
+		return UserInformation{}, "", ret
 	}
 
 	var userInformation UserInformation
 	json.Unmarshal(userResult, &userInformation)
 
-	// get user properties address, company
-	userDescriptionLink := gjson.Get(string(currentUserResult), "_links.userDescription.href").String()
-	userDescriptionResult, ret := s.GetHalResource(ctx, "User", userDescriptionLink)
-	if ret != nil {
-		if ret.Code != 404 {
-			log.WithFields(event.Fields{
-				"status": ret,
-				"query":  userDescriptionLink,
-			}).Error("Failed to get user description")
-
-			ret.Message = "Could not get user description. Please make sure you have the correct access rights."
-			return UserInformation{}, ret
-		}
-		// no desciption available. this happens if no values are entered (e.g. new user)
-		// this is a valid state.
-		log.WithFields(event.Fields{
-			"status": ret,
-			"query":  userDescriptionLink,
-		}).Info("No user description available.")
-	} else {
-		json.Unmarshal(userDescriptionResult, &userInformation)
-	}
-
-	return userInformation, nil
+	return userInformation, string(currentUserResult), nil
 }
 
 // GetUserStatistics returns statitisc information for the current user
@@ -201,149 +160,4 @@ func (s *Service) GetUserLicenses(ctx context.Context, resourceURL string) (User
 	}
 
 	return UserLicenses{UserLicenses: list}, nil
-}
-
-// UpdateUserInformation updates user data like address, ...
-func (s *Service) UpdateUserInformation(ctx context.Context, resourceURL string, info UserInformation) (UserInformation, *status.Status) {
-	// get current user to get the links for update
-	query := resourceURL + "/current"
-
-	currentUserResult, ret := s.GetHalResource(ctx, "User", query)
-	if ret != nil {
-		log.WithFields(event.Fields{
-			"status": ret,
-			"query":  query,
-		}).Error("Failed to get current user")
-
-		ret.Message = "Could not get current user. Please make sure you have the correct access rights."
-		return info, ret
-	}
-
-	// update user description (properties address, company, newsletter, language, uid)
-	var userDescription UserDescription
-	// have to use a get request get the data, because the address have embedded properties and
-	// these properties will vanish if the values are not set in the patch request (only for embedded properties)
-	userDescriptionLink := gjson.Get(string(currentUserResult), "_links.userDescription.href").String()
-	userDescriptionResult, ret := s.GetHalResource(ctx, "User", userDescriptionLink)
-	if ret != nil {
-		if ret.Code == 404 {
-			log.WithFields(event.Fields{
-				"status": ret,
-				"query":  query,
-			}).Info("Failed to get current user description. Maybe does not exist yet.")
-
-			// Continue, because this happens when user has not entered his address, .."
-
-			emptyValue := ""
-			userDescription.Address = Address{
-				Zip:         &emptyValue,
-				Address:     &emptyValue,
-				State:       &emptyValue,
-				City:        &emptyValue,
-				Country:     &emptyValue,
-				CountryName: &emptyValue,
-			}
-		} else {
-			log.WithFields(event.Fields{
-				"status": ret,
-				"query":  query,
-			}).Error("Failed to get current user description.")
-			ret.Message = "Could not get current user description. Please make sure you have the correct access rights."
-			return info, ret
-		}
-	} else {
-		json.Unmarshal(userDescriptionResult, &userDescription)
-	}
-
-	if info.Company != nil {
-		userDescription.Company = *info.Company
-	}
-
-	if info.Address != nil {
-		if info.Address.Zip != nil {
-			userDescription.Address.Zip = info.Address.Zip
-		} else {
-			info.Address.Zip = userDescription.Address.Zip
-		}
-		if info.Address.Address != nil {
-			userDescription.Address.Address = info.Address.Address
-		} else {
-			info.Address.Address = userDescription.Address.Address
-		}
-		if info.Address.State != nil {
-			userDescription.Address.State = info.Address.State
-		} else {
-			info.Address.State = userDescription.Address.State
-		}
-		if info.Address.City != nil {
-			userDescription.Address.City = info.Address.City
-		} else {
-			info.Address.City = userDescription.Address.City
-		}
-		if info.Address.Country != nil {
-			userDescription.Address.Country = info.Address.Country
-		} else {
-			info.Address.Country = userDescription.Address.Country
-		}
-		if info.Address.CountryName != nil {
-			userDescription.Address.CountryName = info.Address.CountryName
-		} else {
-			info.Address.CountryName = userDescription.Address.CountryName
-		}
-	} else {
-		info.Address = &userDescription.Address
-	}
-
-	if info.UID != nil {
-		userDescription.UID = *info.UID
-	}
-
-	_, ret = s.PatchHalResource(ctx, "User", userDescriptionLink, userDescription)
-	if ret != nil {
-		log.WithFields(event.Fields{
-			"status": ret,
-			"query":  userDescriptionLink,
-		}).Error("Failed to update user description")
-
-		ret.Message = "Could not update user description. Please make sure you have the correct access rights."
-		return info, ret
-	}
-
-	// update user information  (properties firstName, lastName, email)
-	userInfoLink := StripTemplateParameter(gjson.Get(string(currentUserResult), "_links.user.href").String())
-
-	var userInfo UserInfo
-
-	if info.Email != nil {
-		userInfo.Email = *info.Email
-	} else {
-		info.Email = &userInfo.Email
-	}
-
-	if info.FirstName != nil {
-		userInfo.FirstName = *info.FirstName
-	} else {
-		info.FirstName = &userInfo.FirstName
-	}
-
-	if info.LastName != nil {
-		userInfo.LastName = *info.LastName
-	} else {
-		info.LastName = &userInfo.LastName
-	}
-
-	userInfoResult, ret := s.PatchHalResource(ctx, "User", userInfoLink, userInfo)
-	if ret != nil {
-		log.WithFields(event.Fields{
-			"status": ret,
-			"query":  userInfoLink,
-		}).Error("Failed to update user information")
-
-		ret.Message = "Could not update user information. Please make sure you have the correct access rights."
-		return info, ret
-	}
-
-	json.Unmarshal(userInfoResult, &info)
-
-	return info, nil
 }
