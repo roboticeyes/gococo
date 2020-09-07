@@ -3,7 +3,6 @@ package rexos
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 
 	"github.com/roboticeyes/gococo/event"
 	"github.com/roboticeyes/gococo/status"
@@ -18,15 +17,6 @@ type UserInformation struct {
 	Email     *string `json:"email" example:"josef.huber@gasse.at"`
 	UserID    *string `json:"userId" example:"userId"`
 	UserName  *string `json:"userName" example:"userName"`
-}
-
-// UserStatistics is a container for global project information for the user
-type UserStatistics struct {
-	NumberOfProjects              int    `json:"numberOfProjects"`
-	TotalUsedDiskSpace            uint64 `json:"totalUsedDiskSpace"`
-	MaxTotalUsedDiskSpace         uint64 `json:"maxTotalUsedDiskSpace"`
-	NumberOfPubicShareActions     int    `json:"numberOfPublicShareActions"`
-	MaxNumberOfPublicShareActions int    `json:"maxNumberOfPublicShareActions"`
 }
 
 // License is a container for license object
@@ -80,35 +70,6 @@ func (s *Service) GetCurrentUser(ctx context.Context, resourceURL string) (UserI
 	json.Unmarshal(userResult, &userInformation)
 
 	return userInformation, string(currentUserResult), nil
-}
-
-// GetUserStatistics returns statitisc information for the current user
-func (s *Service) GetUserStatistics(ctx context.Context, resourceURL string) (UserStatistics, *status.Status) {
-	// get userID
-	userID, err := GetUserIDFromContext(ctx)
-	if err != nil {
-		log.WithFields(event.Fields{
-			"error": err.Error(),
-		}).Error("Failed to get userID")
-
-		return UserStatistics{}, status.NewStatus([]byte{}, http.StatusInternalServerError, "Cannot get userID ")
-	}
-
-	query := resourceURL + "/statisticsByUser?userId=" + userID
-	userStatisticsResult, ret := s.GetHalResource(ctx, "Project", query)
-	if ret != nil {
-		log.WithFields(event.Fields{
-			"status": ret,
-			"query":  query,
-		}).Error("Failed to get current user statistics")
-
-		ret.Message = "Could not get current user statistics. Please make sure you have the correct access rights."
-		return UserStatistics{}, ret
-	}
-	var stat UserStatistics
-	json.Unmarshal(userStatisticsResult, &stat)
-
-	return stat, nil
 }
 
 // GetUserLicenses returns the licenses for the current user
