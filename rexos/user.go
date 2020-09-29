@@ -35,6 +35,7 @@ type License struct {
 	ActivationDate string `json:"activationDate"`
 	ExpirationDate string `json:"expirationDate"`
 	Urn            string `json:"urn"`
+	SubscriptionID string `json:"subscriptionId"`
 }
 
 // UserLicenses contains a list of all licenses assigned to the user
@@ -157,7 +158,6 @@ func (s *Service) GetUserLicenses(ctx context.Context, resourceURL string) (User
 			return UserLicenses{}, ret
 		}
 		userLicense.Name = gjson.Get(string(licenseResult), "name").String()
-		userLicense.Urn = gjson.Get(string(licenseResult), "urn").String()
 		list = append(list, userLicense)
 	}
 
