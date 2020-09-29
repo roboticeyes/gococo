@@ -31,11 +31,12 @@ type UserStatistics struct {
 
 // License is a container for license object
 type License struct {
-	Name           string `json:"name"`
+	LicenseName    string `json:"licenseName"`
 	ActivationDate string `json:"activationDate"`
 	ExpirationDate string `json:"expirationDate"`
 	Urn            string `json:"urn"`
 	SubscriptionID string `json:"subscriptionId"`
+	LicenseKey     string `json:"licenseKey"`
 }
 
 // UserLicenses contains a list of all licenses assigned to the user
@@ -157,7 +158,8 @@ func (s *Service) GetUserLicenses(ctx context.Context, resourceURL string) (User
 			ret.Message = "Could not get license. Please make sure you have the correct access rights."
 			return UserLicenses{}, ret
 		}
-		userLicense.Name = gjson.Get(string(licenseResult), "name").String()
+		userLicense.LicenseName = gjson.Get(string(licenseResult), "name").String()
+		userLicense.LicenseKey = gjson.Get(string(licenseResult), "key").String()
 		list = append(list, userLicense)
 	}
 
