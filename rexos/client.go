@@ -184,21 +184,6 @@ func (c *Client) GetWithServiceUserNoXF(ctx context.Context, query string, authe
 	return c.get(token, xf, query, authenticate, false)
 }
 
-// GetWithServiceUserNoXFNoContext performs the GET request with the credentials of the service user - no x-forwarded header added
-func (c *Client) GetWithServiceUserNoXFNoContext(query string, authenticate bool) (string, []byte, int, error) {
-	if c.config.NotApplyServiceUser {
-		return "", nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
-	}
-
-	c.mutex.Lock()
-	token := "Bearer " + c.serviceToken.AccessToken
-	c.mutex.Unlock()
-
-	xf := XForwarded{For: ""}
-
-	return c.get(token, xf, query, authenticate, false)
-}
-
 // GetNoXF performs the GET request with the credentials of the client user (stored in the token) - no x-forwarded header added
 func (c *Client) GetNoXF(ctx context.Context, query string, authenticate bool) (string, []byte, int, error) {
 
@@ -491,21 +476,6 @@ func (c *Client) PatchWithXF(ctx context.Context, query string, payload io.Reade
 	}
 
 	return c.patch(token, xf, query, payload, contentType, true)
-}
-
-// PatchWithServiceUserNoContext performs the PATCH request with the credentials of the service user
-func (c *Client) PatchWithServiceUserNoContext(query string, payload io.Reader, contentType string) ([]byte, int, error) {
-	if c.config.NotApplyServiceUser {
-		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
-	}
-
-	c.mutex.Lock()
-	token := "Bearer " + c.serviceToken.AccessToken
-	c.mutex.Unlock()
-
-	xf := XForwarded{For: ""}
-
-	return c.patch(token, xf, query, payload, contentType, false)
 }
 
 // Patch performs a PATCH request to the given query, using the given payload as data, and the provided

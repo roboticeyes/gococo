@@ -37,7 +37,7 @@ type License struct {
 	Urn                string `json:"urn"`
 	SubscriptionID     string `json:"subscriptionId"`
 	LicenseKey         string `json:"licenseKey"`
-	SubscriptionStatus string `json:"subscriptionStatus" example:"active | incomplete | incomplete_expired | past_due | canceled | unpaid | <empty>"`
+	SubscriptionStatus string `json:"subscriptionStatus" example:"trial | active | incomplete | incomplete_expired | past_due | canceled | unpaid | <empty>"`
 }
 
 // UserLicenses contains a list of all licenses assigned to the user
