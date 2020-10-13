@@ -81,6 +81,7 @@ func (c *Client) refreshToken() bool {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Basic "+encodedToken)
+	fmt.Println("Basic " + encodedToken)
 
 	resp, err := c.httpClient.Do(req)
 
@@ -179,6 +180,21 @@ func (c *Client) GetWithServiceUserNoXF(ctx context.Context, query string, authe
 	if err != nil {
 		return "", nil, http.StatusForbidden, fmt.Errorf("Cannot get host")
 	}
+
+	return c.get(token, xf, query, authenticate, false)
+}
+
+// GetWithServiceUserNoXFNoContext performs the GET request with the credentials of the service user - no x-forwarded header added
+func (c *Client) GetWithServiceUserNoXFNoContext(query string, authenticate bool) (string, []byte, int, error) {
+	if c.config.NotApplyServiceUser {
+		return "", nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
+
+	c.mutex.Lock()
+	token := "Bearer " + c.serviceToken.AccessToken
+	c.mutex.Unlock()
+
+	xf := XForwarded{For: ""}
 
 	return c.get(token, xf, query, authenticate, false)
 }
@@ -475,6 +491,21 @@ func (c *Client) PatchWithXF(ctx context.Context, query string, payload io.Reade
 	}
 
 	return c.patch(token, xf, query, payload, contentType, true)
+}
+
+// PatchWithServiceUserNoContext performs the PATCH request with the credentials of the service user
+func (c *Client) PatchWithServiceUserNoContext(query string, payload io.Reader, contentType string) ([]byte, int, error) {
+	if c.config.NotApplyServiceUser {
+		return nil, http.StatusForbidden, fmt.Errorf("No service user initialized")
+	}
+
+	c.mutex.Lock()
+	token := "Bearer " + c.serviceToken.AccessToken
+	c.mutex.Unlock()
+
+	xf := XForwarded{For: ""}
+
+	return c.patch(token, xf, query, payload, contentType, false)
 }
 
 // Patch performs a PATCH request to the given query, using the given payload as data, and the provided

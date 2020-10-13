@@ -31,12 +31,13 @@ type UserStatistics struct {
 
 // License is a container for license object
 type License struct {
-	LicenseName    string `json:"licenseName"`
-	ActivationDate string `json:"activationDate"`
-	ExpirationDate string `json:"expirationDate"`
-	Urn            string `json:"urn"`
-	SubscriptionID string `json:"subscriptionId"`
-	LicenseKey     string `json:"licenseKey"`
+	LicenseName        string `json:"licenseName"`
+	ActivationDate     string `json:"activationDate"`
+	ExpirationDate     string `json:"expirationDate"`
+	Urn                string `json:"urn"`
+	SubscriptionID     string `json:"subscriptionId"`
+	LicenseKey         string `json:"licenseKey"`
+	SubscriptionStatus string `json:"subscriptionStatus" example:"active | incomplete | incomplete_expired | past_due | canceled | unpaid | <empty>"`
 }
 
 // UserLicenses contains a list of all licenses assigned to the user

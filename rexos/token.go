@@ -72,9 +72,9 @@ func ValidateToken(c *gin.Context, signingKey string) {
 		log.WithFields(event.Fields{
 			"UserID": claims.UserID,
 		}).Debugf("Token is valid. Expires in %v\n", t.Sub(time.Now()))
-		// for _, licenseItem := range claims.ComplexAuthorities.LicenseItems {
-		// 	log.Printf("License item: %s\n", licenseItem.Key)
-		// }
+		for _, licenseItem := range claims.ComplexAuthorities.LicenseItems {
+			log.Printf("License item: %s\n", licenseItem.Key)
+		}
 	} else {
 		c.AbortWithStatus(http.StatusForbidden)
 		return

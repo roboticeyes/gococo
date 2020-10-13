@@ -26,7 +26,9 @@ type Service struct {
 
 type postFunction func(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error)
 type getFunction func(ctx context.Context, query string, authenticate bool) (string, []byte, int, error)
+type getFunctionNoContext func(query string, authenticate bool) (string, []byte, int, error)
 type patchFunction func(ctx context.Context, query string, payload io.Reader, contentType string) ([]byte, int, error)
+type patchFunctionNoContext func(query string, payload io.Reader, contentType string) ([]byte, int, error)
 
 // NewService returns a new rexos service which is implementing the RexOSAccessor interface
 func NewService(config Config) *Service {
@@ -85,6 +87,11 @@ func (s *Service) GetHalResourceNoXF(ctx context.Context, resourceName, url stri
 	return s.getHalResource(ctx, resourceName, url, s.client.GetNoXF)
 }
 
+// GetHalResourceWithServiceUserNoXFNoContext retruns the requested resource with service user - x-forwarded header fields not added
+func (s *Service) GetHalResourceWithServiceUserNoXFNoContext(resourceName, url string) ([]byte, *status.Status) {
+	return s.getHalResourceNoContext(resourceName, url, s.client.GetWithServiceUserNoXFNoContext)
+}
+
 // getHalResource performs the GET request for getting a rexos resource
 // Returns the body in case of success. If an error occurred, then the according
 // status is returned. The resourceName is used for the error message
@@ -95,6 +102,38 @@ func (s *Service) getHalResource(ctx context.Context, resourceName, url string, 
 	var err error
 
 	_, body, code, err = gf(ctx, url, true)
+
+	if err != nil {
+		log.WithFields(event.Fields{
+			"resourceName": resourceName,
+			"code":         code,
+			"url":          url,
+		}).Debug("Can not get HAL resource: " + err.Error())
+		return []byte{}, status.NewStatus(body, code, "Can not get resource "+resourceName)
+	}
+
+	// A GET request should return a value in range of [200,300[
+	if code < http.StatusOK || code >= http.StatusMultipleChoices {
+		log.WithFields(event.Fields{
+			"resourceName": resourceName,
+			"code":         code,
+			"url":          url,
+		}).Debug("Can not get HAL resource")
+		return []byte{}, status.NewStatus(body, code, "Can not get resource "+resourceName)
+	}
+	return body, nil
+}
+
+// getHalResource performs the GET request for getting a rexos resource
+// Returns the body in case of success. If an error occurred, then the according
+// status is returned. The resourceName is used for the error message
+func (s *Service) getHalResourceNoContext(resourceName, url string, gf getFunctionNoContext) ([]byte, *status.Status) {
+
+	var body []byte
+	var code int
+	var err error
+
+	_, body, code, err = gf(url, true)
 
 	if err != nil {
 		log.WithFields(event.Fields{
@@ -176,6 +215,11 @@ func (s *Service) PatchHalResourceWithServiceUser(ctx context.Context, resourceN
 	return s.patchHalResource(ctx, resourceName, url, r, s.client.PatchWithServiceUser)
 }
 
+// PatchHalResourceWithServiceUserNoContext patches the resource with the service user no context available
+func (s *Service) PatchHalResourceWithServiceUserNoContext(resourceName, url string, r interface{}) ([]byte, *status.Status) {
+	return s.patchHalResourceNoContext(resourceName, url, r, s.client.PatchWithServiceUserNoContext)
+}
+
 // PatchHalResource patches the resource with the caller's credentials
 func (s *Service) PatchHalResource(ctx context.Context, resourceName, url string, r interface{}) ([]byte, *status.Status) {
 	return s.patchHalResource(ctx, resourceName, url, r, s.client.Patch)
@@ -202,6 +246,38 @@ func (s *Service) patchHalResource(ctx context.Context, resourceName, url string
 	json.NewEncoder(b).Encode(r)
 
 	body, code, err = pf(ctx, url, b, "application/json")
+	if err != nil {
+		log.WithFields(event.Fields{
+			"resourceName": resourceName,
+			"code":         code,
+			"url":          url,
+		}).Debug("Can not patch HAL resource: " + err.Error())
+		return []byte{}, status.NewStatus(body, code, "Can not modify resource "+resourceName)
+	}
+
+	// A PATCH request should return a value in range of [200,300[
+	if code < http.StatusOK || code >= http.StatusMultipleChoices {
+		log.WithFields(event.Fields{
+			"resourceName": resourceName,
+			"code":         code,
+			"url":          url,
+		}).Debug("Can not patch HAL resource")
+		return []byte{}, status.NewStatus(body, code, "Can not modify resource "+resourceName)
+	}
+	return body, nil
+}
+
+// patchHalResourceNoContext sends a partial update to the requested resource
+func (s *Service) patchHalResourceNoContext(resourceName, url string, r interface{}, pf patchFunctionNoContext) ([]byte, *status.Status) {
+
+	var body []byte
+	var code int
+	var err error
+
+	b := new(bytes.Buffer)
+	json.NewEncoder(b).Encode(r)
+
+	body, code, err = pf(url, b, "application/json")
 	if err != nil {
 		log.WithFields(event.Fields{
 			"resourceName": resourceName,
