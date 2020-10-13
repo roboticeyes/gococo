@@ -81,7 +81,6 @@ func (c *Client) refreshToken() bool {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Basic "+encodedToken)
-	fmt.Println("Basic " + encodedToken)
 
 	resp, err := c.httpClient.Do(req)
 
