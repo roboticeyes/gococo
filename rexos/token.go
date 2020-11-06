@@ -35,6 +35,9 @@ type CustomClaims struct {
 }
 
 // ValidateToken checks the token of a given context
+// Checks if the tokens custom clains contains a license item with the given composite name.
+// If no composite name is attached, the license items are not verified.
+// Only the first composite name of the array is checked.
 func ValidateToken(c *gin.Context, signingKey string, compositeName ...string) {
 
 	tokenString := c.GetHeader("authorization")
