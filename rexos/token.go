@@ -35,7 +35,7 @@ type CustomClaims struct {
 }
 
 // ValidateToken checks the token of a given context
-func ValidateToken(c *gin.Context, signingKey string) {
+func ValidateToken(c *gin.Context, signingKey string, compositeName ...string) {
 
 	tokenString := c.GetHeader("authorization")
 	if tokenString == "" {
@@ -72,12 +72,26 @@ func ValidateToken(c *gin.Context, signingKey string) {
 		log.WithFields(event.Fields{
 			"UserID": claims.UserID,
 		}).Debugf("Token is valid. Expires in %v\n", t.Sub(time.Now()))
-		// for _, licenseItem := range claims.ComplexAuthorities.LicenseItems {
-		// 	log.Printf("License item: %s\n", licenseItem.Key)
-		// }
-	} else {
+
+		// no composite name to check custom claims (license items)
+		if len(compositeName) == 0 {
+			c.Next()
+			return
+		}
+		for i := range claims.ComplexAuthorities.LicenseItems {
+			if claims.ComplexAuthorities.LicenseItems[i].Key == compositeName[0] {
+				log.Debugf("License item for %s found.\n", compositeName[0])
+				c.Next()
+				return
+			}
+		}
+		// no license item for composite found
+		log.WithFields(event.Fields{
+			"UserID": claims.UserID,
+		}).Errorf("No license item for %s found.\n", compositeName[0])
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
-	c.Next()
+	c.AbortWithStatus(http.StatusForbidden)
+	return
 }
