@@ -34,3 +34,12 @@ func NewTransformationWithScale() TransformationWithScale {
 		Scale:          1.0,
 	}
 }
+
+// ConvertToTransformationWithScale converts a transformation container to a
+// transformation with scale 1.0
+func ConvertToTransformationWithScale(t Transformation) TransformationWithScale {
+	return TransformationWithScale{
+		Transformation: t,
+		Scale:          1.0,
+	}
+}
