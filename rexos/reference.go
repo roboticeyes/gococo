@@ -14,9 +14,9 @@ type Reference struct {
 	ParentReference     string                       `json:"parentReference,omitempty"`
 	ProjectRoot         string                       `json:"projectRoot,omitempty"`
 	LocalTransformation math.TransformationWithScale `json:"localTransformation"`
-	Positioned          bool                         `json:"positioned,omitempty"`
+	Positioned          bool                         `json:"positioned"`
 	Description         string                       `json:"description,omitempty"`
-	Visible             bool                         `json:"visible,omitempty"`
+	Visible             bool                         `json:"visible"`
 	Category            string                       `json:"category,omitempty"`
 	DataResource        string                       `json:"dataResource,omitempty"`
 }
