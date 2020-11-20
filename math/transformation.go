@@ -43,3 +43,9 @@ func ConvertToTransformationWithScale(t Transformation) TransformationWithScale 
 		Scale:          1.0,
 	}
 }
+
+// ConvertFromTransformationWithScale converts a transformation with scale to a
+// transformation without scale
+func ConvertFromTransformationWithScale(t TransformationWithScale) Transformation {
+	return t.Transformation
+}
