@@ -96,7 +96,7 @@ func (s *Service) GetShare(ctx context.Context, projectResourceURL, userResource
 		// find user
 		userID := gjson.Get(u.String(), "user").String()
 		query = userResourceURL + "/search/findByUserId?userId=" + userID
-		userResult, ret := s.GetHalResource(ctx, "Users", query)
+		userResult, ret := s.GetHalResourceWithServiceUser(ctx, "Users", query)
 		if ret != nil {
 			log.WithFields(event.Fields{
 				"status": ret,
