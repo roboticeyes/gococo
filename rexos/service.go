@@ -101,7 +101,7 @@ func (s *Service) getHalResource(ctx context.Context, resourceName, url string, 
 			"resourceName": resourceName,
 			"code":         code,
 			"url":          url,
-		}).Debug("Can not get HAL resource: " + err.Error())
+		}).Error("Can not get HAL resource: " + err.Error())
 		return []byte{}, status.NewStatus(body, code, "Can not get resource "+resourceName)
 	}
 
@@ -111,7 +111,7 @@ func (s *Service) getHalResource(ctx context.Context, resourceName, url string, 
 			"resourceName": resourceName,
 			"code":         code,
 			"url":          url,
-		}).Debug("Can not get HAL resource")
+		}).Error("Can not get HAL resource")
 		return []byte{}, status.NewStatus(body, code, "Can not get resource "+resourceName)
 	}
 	return body, nil
@@ -155,7 +155,7 @@ func (s *Service) createHalResource(ctx context.Context, resourceName, url strin
 			"resourceName": resourceName,
 			"code":         code,
 			"url":          url,
-		}).Debug("Can not create HAL resource: " + err.Error())
+		}).Error("Can not create HAL resource: " + err.Error())
 		return []byte{}, status.NewStatus(body, code, "Can not create resource "+resourceName)
 	}
 
@@ -165,7 +165,7 @@ func (s *Service) createHalResource(ctx context.Context, resourceName, url strin
 			"resourceName": resourceName,
 			"code":         code,
 			"url":          url,
-		}).Debug("Can not create HAL resource")
+		}).Error("Can not create HAL resource")
 		return []byte{}, status.NewStatus(body, code, "Can not create resource "+resourceName)
 	}
 	return body, nil
@@ -207,7 +207,7 @@ func (s *Service) patchHalResource(ctx context.Context, resourceName, url string
 			"resourceName": resourceName,
 			"code":         code,
 			"url":          url,
-		}).Debug("Can not patch HAL resource: " + err.Error())
+		}).Error("Can not patch HAL resource: " + err.Error())
 		return []byte{}, status.NewStatus(body, code, "Can not modify resource "+resourceName)
 	}
 
@@ -217,7 +217,7 @@ func (s *Service) patchHalResource(ctx context.Context, resourceName, url string
 			"resourceName": resourceName,
 			"code":         code,
 			"url":          url,
-		}).Debug("Can not patch HAL resource")
+		}).Error("Can not patch HAL resource")
 		return []byte{}, status.NewStatus(body, code, "Can not modify resource "+resourceName)
 	}
 	return body, nil
@@ -231,7 +231,7 @@ func (s *Service) DeleteHalResource(ctx context.Context, resourceName, url strin
 			"resoucreName": resourceName,
 			"code":         code,
 			"url":          url,
-		}).Info("Failed to delete HAL resource" + err.Error())
+		}).Error("Failed to delete HAL resource" + err.Error())
 		return status.NewStatus(nil, code, "Can not delete resource "+resourceName)
 	}
 
@@ -241,7 +241,7 @@ func (s *Service) DeleteHalResource(ctx context.Context, resourceName, url strin
 			"resourceName": resourceName,
 			"code":         code,
 			"url":          url,
-		}).Debug("Can not delete HAL resource")
+		}).Error("Can not delete HAL resource")
 		return status.NewStatus(nil, code, "Can not delete resource "+resourceName)
 	}
 	return nil
@@ -258,7 +258,7 @@ func (s *Service) DownloadFileContent(ctx context.Context, downloadURL string, a
 		log.WithFields(event.Fields{
 			"downloadUrl": downloadURL,
 			"fileName":    fileName,
-		}).Debug("Can not download file content: " + err.Error())
+		}).Error("Can not download file content: " + err.Error())
 		return []byte{}, status.NewStatus(nil, code, "Can not access file "+fileName)
 	}
 
@@ -266,7 +266,7 @@ func (s *Service) DownloadFileContent(ctx context.Context, downloadURL string, a
 		log.WithFields(event.Fields{
 			"downloadUrl": downloadURL,
 			"fileName":    fileName,
-		}).Debug("Can not download file content")
+		}).Error("Can not download file content")
 		return []byte{}, status.NewStatus(nil, code, "Can not access file "+fileName)
 	}
 
@@ -286,7 +286,7 @@ func (s *Service) UploadFileContent(ctx context.Context, uploadURL string, downl
 			"downloadUrl": downloadURL,
 			"uploadUrl":   uploadURL,
 			"fileName":    fileName,
-		}).Debug("Can not download file content: " + err.Error())
+		}).Error("Can not download file content: " + err.Error())
 		return status.NewStatus(nil, code, "Can not access file "+fileName)
 	}
 
@@ -295,7 +295,7 @@ func (s *Service) UploadFileContent(ctx context.Context, uploadURL string, downl
 			"downloadUrl": downloadURL,
 			"uploadUrl":   uploadURL,
 			"fileName":    fileName,
-		}).Debug("Can not download file content")
+		}).Error("Can not download file content")
 		return status.NewStatus(nil, code, "Can not access file "+fileName)
 	}
 
@@ -314,7 +314,7 @@ func (s *Service) UploadFileContent(ctx context.Context, uploadURL string, downl
 			"downloadUrl": downloadURL,
 			"uploadUrl":   uploadURL,
 			"fileName":    fileName,
-		}).Debug("Can not upload file content: " + err.Error())
+		}).Error("Can not upload file content: " + err.Error())
 		return status.NewStatus(responseBody, code, "Can not upload file "+fileName)
 	}
 	if code != http.StatusOK {
@@ -322,7 +322,7 @@ func (s *Service) UploadFileContent(ctx context.Context, uploadURL string, downl
 			"downloadUrl": downloadURL,
 			"uploadUrl":   uploadURL,
 			"fileName":    fileName,
-		}).Debug("Can not upload file content: " + err.Error())
+		}).Error("Can not upload file content: " + err.Error())
 		return status.NewStatus(responseBody, code, "Can not upload file "+fileName)
 	}
 	return nil
@@ -344,14 +344,14 @@ func (s *Service) UploadMultipartFile(ctx context.Context, fileName string, uplo
 		log.WithFields(event.Fields{
 			"uploadUrl": uploadURL,
 			"fileName":  fileName,
-		}).Debug("Can not upload file content: " + err.Error())
+		}).Error("Can not upload file content: " + err.Error())
 		return status.NewStatus(responseBody, code, "Can not upload file "+fileName)
 	}
 	if code != http.StatusOK {
 		log.WithFields(event.Fields{
 			"uploadUrl": uploadURL,
 			"fileName":  fileName,
-		}).Debug("Can not upload file content: " + err.Error())
+		}).Error("Can not upload file content: " + err.Error())
 		return status.NewStatus(responseBody, code, "Can not upload file "+fileName)
 	}
 	return nil
@@ -371,14 +371,14 @@ func (s *Service) UploadFile(ctx context.Context, fileName string, uploadURL str
 		log.WithFields(event.Fields{
 			"uploadUrl": uploadURL,
 			"fileName":  fileName,
-		}).Debug("Can not upload file content: " + err.Error())
+		}).Error("Can not upload file content: " + err.Error())
 		return status.NewStatus(responseBody, code, "Can not upload file "+fileName)
 	}
 	if code != http.StatusOK {
 		log.WithFields(event.Fields{
 			"uploadUrl": uploadURL,
 			"fileName":  fileName,
-		}).Debug("Can not upload file content: " + err.Error())
+		}).Error("Can not upload file content: " + err.Error())
 		return status.NewStatus(responseBody, code, "Can not upload file "+fileName)
 	}
 	return nil
