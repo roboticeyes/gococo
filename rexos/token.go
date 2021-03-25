@@ -1,10 +1,13 @@
 package rexos
 
 import (
+	"bufio"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"os"
+
 	"net/http"
 	"strings"
 	"time"
@@ -41,17 +44,12 @@ type CustomClaims struct {
 // getKey verifies the given key. If the key is a simple signing key the key is returned
 // as byte array ([]byte). If the key is a rsa/ dsa/ ecdsa key, the string is first pem decoded,
 // then parsed and returned as public key in its particular type (e.g. *rsa.PublicKey)
-func getKey(alg string, signingKey string, signingPublicKey string) interface{} {
+func getKey(alg string, signingKey string, signingPublicKey []byte) interface{} {
 	if alg == "HS256" {
 		return []byte(signingKey)
 	} else if alg == "RS256" {
-		block, _ := pem.Decode([]byte(signingPublicKey))
-		if block == nil {
-			log.Error("Get key for token validation. Cannot decode pem.")
-			return nil
-		}
+		pub, err := x509.ParsePKIXPublicKey(signingPublicKey)
 
-		pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 		if err != nil {
 			log.Error("Get key for token validation. Cannot parse public key. " + err.Error())
 			return nil
@@ -67,7 +65,7 @@ func getKey(alg string, signingKey string, signingPublicKey string) interface{} 
 // Checks if the tokens custom clains contains a license item with the given composite name.
 // If no composite name is attached, the license items are not verified.
 // Only the first composite name of the array is checked.
-func ValidateToken(c *gin.Context, signingKey, signingPublicKey string, compositeName ...string) {
+func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, compositeName ...string) {
 
 	tokenString := c.GetHeader("authorization")
 	if tokenString == "" {
@@ -107,7 +105,6 @@ func ValidateToken(c *gin.Context, signingKey, signingPublicKey string, composit
 
 	token, err = jwt.ParseWithClaims(split[1], &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return getKey(alg, signingKey, signingPublicKey), nil
-		// return []byte(key), nil
 	})
 	if err != nil {
 		log.Error(err)
@@ -117,6 +114,7 @@ func ValidateToken(c *gin.Context, signingKey, signingPublicKey string, composit
 
 	// Validate the token and return the custom claims
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+
 		c.Set(KeyUserID, claims.UserID)
 		t := time.Unix(claims.StandardClaims.ExpiresAt, 0)
 		log.WithFields(event.Fields{
@@ -144,4 +142,23 @@ func ValidateToken(c *gin.Context, signingKey, signingPublicKey string, composit
 	}
 	c.AbortWithStatus(http.StatusForbidden)
 	return
+}
+
+// ReadPEMFile reads a pem file and returns the public key
+func ReadPEMFile(fileName string) ([]byte, error) {
+	privateKeyFile, err := os.Open(fileName)
+	if err != nil {
+		log.Debugf("Cannot open PEM file %s\n", fileName)
+		return []byte{}, err
+	}
+
+	pemfileinfo, _ := privateKeyFile.Stat()
+	var size int64 = pemfileinfo.Size()
+	pembytes := make([]byte, size)
+	buffer := bufio.NewReader(privateKeyFile)
+	_, err = buffer.Read(pembytes)
+	data, _ := pem.Decode([]byte(pembytes))
+	privateKeyFile.Close()
+
+	return data.Bytes, nil
 }
