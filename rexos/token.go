@@ -41,10 +41,6 @@ type CustomClaims struct {
 	jwt.StandardClaims
 }
 
-// type LicenseItemsValidator interface {
-// 	LicenseItemsValid(*CustomClaims, interface{}) bool
-// }
-
 type LicenseItemsValidator func(*CustomClaims, interface{}) bool
 
 // getKey verifies the given key. If the key is a simple signing key the key is returned
