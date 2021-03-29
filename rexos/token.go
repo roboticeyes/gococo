@@ -44,8 +44,8 @@ type CustomClaims struct {
 type LicenseItemsValidator func(*CustomClaims, interface{}) bool
 
 // getKey verifies the given key. If the key is a simple signing key the key is returned
-// as byte array ([]byte). If the key is a rsa/ dsa/ ecdsa key, the string is first pem decoded,
-// then parsed and returned as public key in its particular type (e.g. *rsa.PublicKey)
+// as byte array ([]byte). If the key is a rsa key, the key is
+// parsed and returned as public key in its particular type (e.g. *rsa.PublicKey)
 func getKey(alg string, signingKey string, signingPublicKey []byte) interface{} {
 	if alg == "HS256" {
 		return []byte(signingKey)
@@ -64,7 +64,7 @@ func getKey(alg string, signingKey string, signingPublicKey []byte) interface{} 
 }
 
 // ValidateToken checks the token of a given context
-// Checks if the tokens custom clains contains a license item with the given composite name.
+// Checks if the tokens custom clains contains license items which comply the given items validator function
 func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, licenseItemsValid LicenseItemsValidator, validationItems interface{}) {
 
 	tokenString := c.GetHeader("authorization")
@@ -136,7 +136,7 @@ func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, l
 	return
 }
 
-// ReadPEMFile reads a pem file and returns the public key
+// ReadPEMFile reads a pem file and returns the decoded public key
 func ReadPEMFile(privateKeyReader io.Reader, size int64) ([]byte, error) {
 
 	pembytes := make([]byte, size)
@@ -154,7 +154,7 @@ func ReadPEMFile(privateKeyReader io.Reader, size int64) ([]byte, error) {
 }
 
 // ClaimsContainCompositeName checks if claims contains the given license item name
-// If the given license items name is empty, the license items are not verified
+// If the given license items name is empty, the license items are not verified and true is returned
 func ClaimsContainCompositeName(claims *CustomClaims, item interface{}) bool {
 	itemName := item.(string)
 	if itemName == "" {
