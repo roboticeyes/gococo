@@ -1,6 +1,13 @@
 package rexos
 
 import (
+	"bufio"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/json"
+	"encoding/pem"
+	"io"
+
 	"net/http"
 	"strings"
 	"time"
@@ -34,11 +41,31 @@ type CustomClaims struct {
 	jwt.StandardClaims
 }
 
+type LicenseItemsValidator func(*CustomClaims, interface{}) bool
+
+// getKey verifies the given key. If the key is a simple signing key the key is returned
+// as byte array ([]byte). If the key is a rsa key, the key is
+// parsed and returned as public key in its particular type (e.g. *rsa.PublicKey)
+func getKey(alg string, signingKey string, signingPublicKey []byte) interface{} {
+	if alg == "HS256" {
+		return []byte(signingKey)
+	} else if alg == "RS256" {
+		pub, err := x509.ParsePKIXPublicKey(signingPublicKey)
+
+		if err != nil {
+			log.Error("Get key for token validation. Cannot parse public key. " + err.Error())
+			return nil
+		}
+
+		return pub.(*rsa.PublicKey)
+	}
+	log.Error("Get key for token validation. Not suppoorted token signature algorithm. " + alg)
+	return nil
+}
+
 // ValidateToken checks the token of a given context
-// Checks if the tokens custom clains contains a license item with the given composite name.
-// If no composite name is attached, the license items are not verified.
-// Only the first composite name of the array is checked.
-func ValidateToken(c *gin.Context, signingKey string, compositeName ...string) {
+// Checks if the tokens custom clains contains license items which comply the given items validator function
+func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, licenseItemsValid LicenseItemsValidator, validationItems interface{}) {
 
 	tokenString := c.GetHeader("authorization")
 	if tokenString == "" {
@@ -59,8 +86,25 @@ func ValidateToken(c *gin.Context, signingKey string, compositeName ...string) {
 		return
 	}
 
-	token, err := jwt.ParseWithClaims(split[1], &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(signingKey), nil
+	// parse Header
+	parts := strings.Split(split[1], ".")
+	token := &jwt.Token{Raw: split[1]}
+	var headerBytes []byte
+	var err error
+	if headerBytes, err = jwt.DecodeSegment(parts[0]); err != nil {
+		log.WithFields(event.Fields{
+			"error": err.Error(),
+		}).Error("Error decode header segment")
+		return
+	}
+	if err = json.Unmarshal(headerBytes, &token.Header); err != nil {
+		log.Error("Error unmarshal header bytes")
+		return
+	}
+	alg := token.Header["alg"].(string)
+
+	token, err = jwt.ParseWithClaims(split[1], &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return getKey(alg, signingKey, signingPublicKey), nil
 	})
 	if err != nil {
 		log.Error(err)
@@ -70,31 +114,56 @@ func ValidateToken(c *gin.Context, signingKey string, compositeName ...string) {
 
 	// Validate the token and return the custom claims
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+
 		c.Set(KeyUserID, claims.UserID)
 		t := time.Unix(claims.StandardClaims.ExpiresAt, 0)
 		log.WithFields(event.Fields{
 			"UserID": claims.UserID,
 		}).Debugf("Token is valid. Expires in %v\n", t.Sub(time.Now()))
 
-		// no composite name to check custom claims (license items)
-		if len(compositeName) == 0 {
+		if licenseItemsValid(claims, validationItems) {
 			c.Next()
 			return
 		}
-		for i := range claims.ComplexAuthorities.LicenseItems {
-			if claims.ComplexAuthorities.LicenseItems[i].Key == compositeName[0] {
-				log.Debugf("License item for %s found.\n", compositeName[0])
-				c.Next()
-				return
-			}
-		}
-		// no license item for composite found
+
 		log.WithFields(event.Fields{
 			"UserID": claims.UserID,
-		}).Errorf("No license item for %s found.\n", compositeName[0])
+		}).Error("No valid license items found.")
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
 	c.AbortWithStatus(http.StatusForbidden)
 	return
+}
+
+// ReadPEMFile reads a pem file and returns the decoded public key
+func ReadPEMFile(privateKeyReader io.Reader, size int64) ([]byte, error) {
+
+	pembytes := make([]byte, size)
+	buffer := bufio.NewReader(privateKeyReader)
+	_, err := buffer.Read(pembytes)
+	if err != nil {
+		log.WithFields(event.Fields{
+			"error": err.Error(),
+		}).Error("Error reading PEM file.")
+		return []byte{}, err
+	}
+	data, _ := pem.Decode([]byte(pembytes))
+
+	return data.Bytes, nil
+}
+
+// ClaimsContainCompositeName checks if claims contains the given license item name
+// If the given license items name is empty, the license items are not verified and true is returned
+func ClaimsContainCompositeName(claims *CustomClaims, item interface{}) bool {
+	itemName := item.(string)
+	if itemName == "" {
+		return true
+	}
+	for i := range claims.ComplexAuthorities.LicenseItems {
+		if claims.ComplexAuthorities.LicenseItems[i].Key == itemName {
+			return true
+		}
+	}
+	return false
 }

@@ -235,6 +235,7 @@ func (c *Client) get(token string, xf XForwarded, query string, authenticate boo
 				"query":        query,
 				"errorMessage": err.Error(),
 			}).Debug("Internal GET request error")
+			return fileName, nil, resp.StatusCode, err
 		}
 
 		// Check for content-disposition to extract optional fileName
