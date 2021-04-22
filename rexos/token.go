@@ -23,6 +23,9 @@ const (
 
 	// KeyUserID is used as an identifier
 	KeyUserID = "UserID"
+
+	// Admin Authoritiy
+	AuthorityAdmin = "ROLE_ADMIN"
 )
 
 // CustomClaims is our custom metadata of the JWT
@@ -37,7 +40,8 @@ type CustomClaims struct {
 			ValueLong    int    `json:"valueLong,omitempty"`
 		} `json:"license_items"`
 	} `json:"complex_authorities"`
-	UserID string `json:"user_id"`
+	UserID      string   `json:"user_id"`
+	Authorities []string `json:"authorities"`
 	jwt.StandardClaims
 }
 
@@ -120,6 +124,14 @@ func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, l
 		log.WithFields(event.Fields{
 			"UserID": claims.UserID,
 		}).Debugf("Token is valid. Expires in %v\n", t.Sub(time.Now()))
+
+		// admin user is always allowed
+		for _, a := range claims.Authorities {
+			if a == AuthorityAdmin {
+				c.Next()
+				return
+			}
+		}
 
 		if licenseItemsValid(claims, validationItems) {
 			c.Next()
