@@ -133,6 +133,7 @@ func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, l
 			}
 		}
 
+		// check if user has valid license item
 		if licenseItemsValid(claims, validationItems) {
 			c.Next()
 			return
@@ -145,7 +146,6 @@ func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, l
 		return
 	}
 	c.AbortWithStatus(http.StatusForbidden)
-	return
 }
 
 // ReadPEMFile reads a pem file and returns the decoded public key
