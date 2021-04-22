@@ -23,6 +23,9 @@ const (
 
 	// KeyUserID is used as an identifier
 	KeyUserID = "UserID"
+
+	// Admin Authoritiy
+	AuthorityAdmin = "ROLE_ADMIN"
 )
 
 // CustomClaims is our custom metadata of the JWT
@@ -37,7 +40,8 @@ type CustomClaims struct {
 			ValueLong    int    `json:"valueLong,omitempty"`
 		} `json:"license_items"`
 	} `json:"complex_authorities"`
-	UserID string `json:"user_id"`
+	UserID      string   `json:"user_id"`
+	Authorities []string `json:"authorities"`
 	jwt.StandardClaims
 }
 
@@ -121,6 +125,15 @@ func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, l
 			"UserID": claims.UserID,
 		}).Debugf("Token is valid. Expires in %v\n", t.Sub(time.Now()))
 
+		// admin user is always allowed
+		for _, a := range claims.Authorities {
+			if a == AuthorityAdmin {
+				c.Next()
+				return
+			}
+		}
+
+		// check if user has valid license item
 		if licenseItemsValid(claims, validationItems) {
 			c.Next()
 			return
@@ -133,7 +146,6 @@ func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, l
 		return
 	}
 	c.AbortWithStatus(http.StatusForbidden)
-	return
 }
 
 // ReadPEMFile reads a pem file and returns the decoded public key
