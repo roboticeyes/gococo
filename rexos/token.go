@@ -38,6 +38,7 @@ type CustomClaims struct {
 			Key          string `json:"key"`
 			ValueBoolean bool   `json:"valueBoolean,omitempty"`
 			ValueLong    int    `json:"valueLong,omitempty"`
+			ValueString  string `json:"valueString,omitempty"`
 		} `json:"license_items"`
 	} `json:"complex_authorities"`
 	UserID      string   `json:"user_id"`
@@ -51,6 +52,7 @@ type LicenseItemsValidator func(*CustomClaims, interface{}) bool
 // as byte array ([]byte). If the key is a rsa key, the key is
 // parsed and returned as public key in its particular type (e.g. *rsa.PublicKey)
 func getKey(alg string, signingKey string, signingPublicKey []byte) interface{} {
+
 	if alg == "HS256" {
 		return []byte(signingKey)
 	} else if alg == "RS256" {
@@ -68,7 +70,7 @@ func getKey(alg string, signingKey string, signingPublicKey []byte) interface{} 
 }
 
 // ValidateToken checks the token of a given context
-// Checks if the tokens custom clains contains license items which comply the given items validator function
+// Checks if the tokens custom claims contains license items which comply the given items validator function
 func ValidateToken(c *gin.Context, signingKey string, signingPublicKey []byte, licenseItemsValid LicenseItemsValidator, validationItems interface{}) {
 
 	tokenString := c.GetHeader("authorization")
@@ -168,6 +170,7 @@ func ReadPEMFile(privateKeyReader io.Reader, size int64) ([]byte, error) {
 // ClaimsContainCompositeName checks if claims contains the given license item name
 // If the given license items name is empty, the license items are not verified and true is returned
 func ClaimsContainCompositeName(claims *CustomClaims, item interface{}) bool {
+
 	itemName := item.(string)
 	if itemName == "" {
 		return true
@@ -178,4 +181,19 @@ func ClaimsContainCompositeName(claims *CustomClaims, item interface{}) bool {
 		}
 	}
 	return false
+}
+
+// ClaimsContainPair checks if claims contains the given license item key/value pair
+// If the given license item is empty, the license items are not verified and true is returned
+func ClaimsContainPair(claims *CustomClaims, item interface{}) bool {
+
+	if itemPair, ok := item.(struct{ Key, Value string }); ok {
+		for _, licenseItem := range claims.ComplexAuthorities.LicenseItems {
+			if licenseItem.Key == itemPair.Key && licenseItem.ValueString == itemPair.Value {
+				return true
+			}
+		}
+		return false
+	}
+	return true
 }
