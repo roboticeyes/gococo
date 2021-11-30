@@ -5,8 +5,8 @@ package math
 // any scale value. Please use TransformationWithScale instead.
 // Please do not use this struct directly, but use the NewTransformation() instead!
 type Transformation struct {
-	Translation Vec3f `json:"translation"` // x/y/z
-	Rotation    Vec4f `json:"rotation"`    // x/y/z/w
+	Translation *Vec3f `json:"translation"` // x/y/z
+	Rotation    *Vec4f `json:"rotation"`    // x/y/z/w
 }
 
 // TransformationWithScale takes a normal transformation and adds the scale
@@ -20,8 +20,8 @@ type TransformationWithScale struct {
 // properly
 func NewTransformation() Transformation {
 	return Transformation{
-		Translation: Vec3f{0.0, 0.0, 0.0},
-		Rotation:    Vec4f{0.0, 0.0, 0.0, 1.0},
+		Translation: &Vec3f{0.0, 0.0, 0.0},
+		Rotation:    &Vec4f{0.0, 0.0, 0.0, 1.0},
 	}
 }
 
